@@ -1,6 +1,6 @@
 module GtkREPL
     using Gtk
-    using RemoteGtkIDE
+    using RemoteGtkREPL
     using GtkExtensions
     using JuliaWordsUtils
     using GtkTextUtils
@@ -18,6 +18,7 @@ module GtkREPL
     include("REPLWindow.jl")
     include("CommandHistory.jl")
     include("ConsoleManager.jl")
+    include("REPLMode.jl")
     include("Console.jl")
     include("ConsoleCommands.jl")
 
@@ -27,6 +28,7 @@ module GtkREPL
         include(joinpath(HOMEDIR,"REPLWindow.jl"))
         include(joinpath(HOMEDIR,"CommandHistory.jl"))
         include(joinpath(HOMEDIR,"ConsoleManager.jl"))
+        include(joinpath(HOMEDIR,"REPLMode.jl"))
         include(joinpath(HOMEDIR,"Console.jl"))
         include(joinpath(HOMEDIR,"ConsoleCommands.jl"))
         end)

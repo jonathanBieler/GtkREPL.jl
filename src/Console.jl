@@ -13,32 +13,29 @@ mutable struct Console <: GtkScrolledWindow
     run_task_start_time::AbstractFloat
     main_window
     eval_in::Module
-
+    mode::REPLMode
 
     function Console(w_idx::Int, main_window, worker::TCPSocket)
 
         b = GtkTextBuffer()
         v = GtkTextView(b)
 
-        prompt = "julia>"
-
+        prompt = "Main>"
         setproperty!(b,:text,prompt)
         setproperty!(v,:margin_bottom,10)
+        Gtk.setproperty!(v,:margin_left,4)
 
         sc = GtkScrolledWindow()
         setproperty!(sc,:hscrollbar_policy,1)
-
         push!(sc,v)
-        showall(sc)
 
-        #push!(Gtk.G_.stop_at_dot_context(v), main_window.style_and_language_manager.style_provider, 600)
         t = @schedule begin end
-
         history = setup_history(w_idx)
-
         worker = worker == nothing ? w_idx : worker
 
-        n = new(sc.handle,v,b,t,length(prompt)+1,prompt,IOBuffer(),worker,w_idx,history,time(),main_window,Main)
+        n = new(sc.handle,v,b,t,length(prompt)+1,prompt,IOBuffer(),worker,w_idx,
+            history,time(),main_window,Main,NormalMode()
+        )
         Gtk.gobject_move_ref(n, sc)
     end
 end
@@ -46,32 +43,47 @@ end
 console_manager(c::Console) = console_manager(c.main_window)
 worker(c::Console) = c.worker_idx == 1 ? c.worker_idx : c.worker
 
-#TODO: put this in Gtk
-    import Gtk.hasselection
-    function hasselection(b::GtkTextBuffer)
-        (found,it_start,it_end) = selection_bounds(b)
-        found
-    end
-    function replace_text{T<:GtkTextIters}(buffer::GtkTextBuffer,itstart::T,itend::T,str::AbstractString)
-        pos = offset(itstart)+1
-        splice!(buffer,itstart:itend)
-        insert!(buffer,GtkTextIter(buffer,pos),str)
-    end
-
-
 import Base.write
 function write(c::Console,str::AbstractString)
     insert!(c.buffer,end_iter(c.buffer),str)
     text_buffer_place_cursor(c.buffer,end_iter(c.buffer))
 end
 
+function switch_mode(c::Console,mode::REPLMode)
+    previous_prompt = prompt(c)
+    c.mode=mode
+    switch_prompt(c,mode,previous_prompt)
+end
+
+function check_switch_mode(c::Console,event)
+    for mode in REPLModes
+        if doing(switch_key(mode),event)
+            switch_mode(c,mode)
+            return true
+        end
+    end
+    false
+end
+
+function switch_prompt(c::Console,mode::REPLMode,previous_prompt::String)
+
+    its = GtkTextIter(c.buffer,c.prompt_position-length(previous_prompt))
+    ite = GtkTextIter(c.buffer,c.prompt_position)
+    replace_text(c.buffer,its,ite, prompt(c))
+
+    diff = length(prompt(c))-length(previous_prompt)
+    c.prompt_position += diff
+end
+
+prompt(c::Console) = prompt(c,c.mode)
+
 function write_before_prompt(c::Console,str::AbstractString)
 
-    it = GtkTextIter(c.buffer,c.prompt_position-length(c.prompt))
+    it = GtkTextIter(c.buffer,c.prompt_position-length(prompt(c)))
     insert!(c.buffer, it,str)
     c.prompt_position += length(str)
 
-    it = GtkTextIter(c.buffer,c.prompt_position-length(c.prompt))
+    it = GtkTextIter(c.buffer,c.prompt_position-length(prompt(c)))
     if get_text_left_of_iter(it) != "\n"
         insert!(c.buffer,it,"\n")
         c.prompt_position += 1
@@ -79,7 +91,7 @@ function write_before_prompt(c::Console,str::AbstractString)
 end
 
 function new_prompt(c::Console)
-    insert!(c.buffer,end_iter(c.buffer),"\n$(c.prompt)")
+    insert!(c.buffer,end_iter(c.buffer),"\n$(prompt(c))")
     c.prompt_position = length(c.buffer)+1
     text_buffer_place_cursor(c.buffer,end_iter(c.buffer))
 end
@@ -87,6 +99,7 @@ end
 function clear(c::Console)
     setproperty!(c.buffer,:text,"")
 end
+
 ##
 
 function on_return(c::Console,cmd::String)
@@ -99,10 +112,13 @@ function on_return(c::Console,cmd::String)
     push!(c.history,cmd)
     seek_end(c.history)
 
-    (found,t) = check_console_commands(cmd,c)
+    found = false
+    if c.mode == NormalMode()
+        (found,t) = check_console_commands(cmd,c)
+    end
 
     if !found
-        remotecall_fetch(RemoteGtkIDE.eval_command_remotely,worker(c),cmd,c.eval_in)
+        on_return(c,c.mode,cmd)
     else
         c.run_task = t
     end
@@ -120,8 +136,8 @@ function kill_current_task(c::Console)
     end
 end
 
-interrupt_task(c::Console) = remotecall_fetch(RemoteGtkIDE.interrupt_task,worker(c))
-isdone(c::Console) = remotecall_fetch(RemoteGtkIDE.isdone,worker(c))
+interrupt_task(c::Console) = remotecall_fetch(RemoteGtkREPL.interrupt_task,worker(c))
+isdone(c::Console) = remotecall_fetch(RemoteGtkREPL.isdone,worker(c))
 
 "Wait for the running task to end and print the result in the console.
 Run from Gtk main loop."
@@ -133,7 +149,17 @@ function write_output_to_console(user_data)
         t = c.run_task
         !istaskdone(t) && return Cint(true)
     else
-        !isdone(c) && return Cint(true)
+        # if a worker is busy computing things it will block here
+        # so I just check for a short duration if it's done
+        isdone_t = @schedule isdone(c)
+        start = time()
+        while (isdone_t.state != :done) && ((time()-start) < 0.01)
+            sleep(0.001)
+        end
+        isdone_t.state != :done && return Cint(true)
+        isdone_t.result == false && return Cint(true)
+
+        #!isdone(c) && return Cint(true)
         t = remotecall_fetch(run_task,worker(c))
     end
 
@@ -151,7 +177,6 @@ function write_output_to_console(user_data)
             if str == InterruptException()
                 finalOutput = string(str) * "\n"
             end
-
             write(c,finalOutput)
         end
         new_prompt(c)
@@ -265,6 +290,10 @@ end
         if !ismodkey(event,mod)
             move_cursor_to_end(console)
         end
+    end
+
+    if length(cmd) == 0
+        check_switch_mode(console,event) && return INTERRUPT
     end
 
     (found,it_start,it_end) = selection_bounds(buffer)
@@ -448,7 +477,7 @@ global const console_mousepos_root = zeros(Int,2)
 
 #FIXME replace this by the same thing at the window level ?
 #or put this as a field of the type.
-function console_motion_notify_event_cb(widget::Ptr,  eventptr::Ptr, user_data)
+@guarded (PROPAGATE) function console_motion_notify_event_cb(widget::Ptr,  eventptr::Ptr, user_data)
     event = convert(Gtk.GdkEvent, eventptr)
 
     console_mousepos[1] = round(Int,event.x)
@@ -477,59 +506,45 @@ end
 
 ## Auto-complete
 
+function complete_additional_symbols(str,S)
+    comp = Array{String}(0)
+    for s in S
+        startswith(s,str) && push!(comp,s)
+    end
+    comp
+end
+
 function autocomplete(c::Console,cmd::AbstractString,pos::Integer)
 
     isempty(cmd) && return
     pos > length(cmd) && return
 
     scmd = JuliaWordsUtils.CharArray(cmd)
-    (i,j) = select_word_backward(pos,scmd,false)
+
     (ctx, m) = console_commands_context(cmd)
 
-    i = (i>1) && (scmd[i-1] == '"') ? i-1 : i #need to include " for paths completions
+    if c.mode == ShellMode()
+        ctx, m = :file, nothing
+    end
 
-    firstpart = scmd[1:i-1]
-    lastpart = j < length(scmd) ? scmd[j+1:end] : ""
-    cmd = scmd[i:j]
+    lastpart = pos < length(scmd) ? scmd[pos+1:end] : ""
+    cmd = scmd[1:pos]
 
     if ctx == :normal
         isempty(cmd) && return
         comp,dotpos = completions_in_module(cmd,c)
     end
     if ctx == :file
-
-        m = m.captures[1]
-
-        if isdir(m)
-            if m[end] == '/'  #FIXME windows
-                root, file = m, ""
-            else #when trying to complete something like /Users we just add '/'
-                dotpos = 1:1
-                comp = ["$(cmd)/"]
-                return update_completions(c,comp,dotpos,cmd,firstpart,lastpart)
-            end
-        else
-            root,file = splitdir(m)
-        end
-
-        comp = Array{String}(0)
-        try
-            S = root == "" ? readdir() : readdir(root)
-            comp = complete_additional_symbols(file, S)
-        catch err
-            println(err)
-        end
-
-        dotpos = 1:1
+        (comp,dotpos) = remotecall_fetch(Base.REPL.shell_completions,worker(c),cmd, endof(cmd))
     end
 
-    update_completions(c,comp,dotpos,cmd,firstpart,lastpart)
+    update_completions(c,comp,dotpos,cmd,lastpart)
 end
 
 #FIXME GtkIDE
 function completions_in_module(cmd,c::Console)
     prefix = string(c.eval_in,".")
-    (comp,dotpos) = remotecall_fetch(completions,worker(c),prefix * cmd, endof(prefix * cmd))
+    comp,dotpos = remotecall_fetch(completions,worker(c),prefix * cmd, endof(prefix * cmd))
     dotpos -= endof(prefix)
     comp,dotpos
 end
@@ -537,7 +552,7 @@ end
 ##
 
 # cmd is the word, including dots we are trying to complete
-function update_completions(c::Console,comp,dotpos,cmd,firstpart,lastpart)
+function update_completions(c::Console,comp,dotpos,cmd,lastpart)
 
     isempty(comp) && return
 
@@ -566,13 +581,12 @@ function update_completions(c::Console,comp,dotpos,cmd,firstpart,lastpart)
         out = prefix * comp[1]
     end
 
-    offset = length(firstpart) + length(out)#place the cursor after the newly inserted piece
+    offset = length(out)#place the cursor after the newly inserted piece
     #update entry
-    out = firstpart * out * lastpart
+    out = out * lastpart
     #out = remove_filename_from_methods_def(out)
 
     command(c,out,offset)
-    #set_position!(console.entry,endof(out))
 end
 
 function init!(c::Console)
@@ -592,6 +606,7 @@ end
 
 "Run from the main Gtk loop, and print to console
 the content of stdout_buffer"
+global const is_running = true#FIXME
 function print_to_console(user_data)
 
     console = unsafe_pointer_to_objref(user_data)

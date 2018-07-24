@@ -11,7 +11,7 @@ mutable struct ConsoleManager <: GtkNotebook
     function ConsoleManager(main_window)
 
         ntb = GtkNotebook()
-        port, server = RemoteGtkIDE.start_server()
+        port, server = RemoteGtkREPL.start_server()
 
         n = new(ntb.handle, main_window, server, port)
         Gtk.gobject_move_ref(n, ntb)
@@ -46,12 +46,13 @@ function add_remote_console_cb(id, port)
         worker = connect(port)
         c = Console(id, main_window, worker)
         init!(c)
+        showall(c.main_window)
         c
     catch err
         warn(err)
     end
 
-    RemoteGtkIDE.remotecall_fetch(info, worker(c),"Initializing worker...")
+    RemoteGtkREPL.remotecall_fetch(info, worker(c),"Initializing worker...")
 
     g_timeout_add(100,print_to_console,c)
     "done"

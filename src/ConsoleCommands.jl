@@ -56,7 +56,7 @@ add_console_command(r"^ls\s+(.*)",(m,c) -> begin
 end,:file)
 add_console_command(r"^ls$",(m,c) -> begin
 	try
-        files = readdir() 
+        files = remotecall_fetch(readdir,worker(c))
         s = ""
         for f in files
             s = string(s,f,"\n")
@@ -119,7 +119,7 @@ add_console_command(r"^evalin (.*)",(m,c) -> begin
 	try
         v = m.captures[1]
         v == "?" && return string(c.eval_in) * "\n"
-        
+
         m = eval(Main,parse(v))
         typeof(m) != Module && error("evalin : $v is not a module")
         c.eval_in = m
