@@ -1,3 +1,4 @@
+__precompile__()
 module GtkREPL
     using Gtk
     using RemoteGtkREPL
@@ -7,6 +8,8 @@ module GtkREPL
 
     import Gtk.GtkTextIter
     import Base.REPLCompletions.completions
+
+    export repl
 
     global const HOMEDIR = @__DIR__
     global const PROPAGATE = convert(Cint,false)
@@ -34,10 +37,10 @@ module GtkREPL
         end)
     end
 
-    function __init__()
+    function gtkrepl(T=GtkTextView,B=GtkTextBuffer)
         global main_window = REPLWindow()
         console_mng = ConsoleManager(main_window)
-        c = Console(1, main_window, TCPSocket())
+        c = Console{T,B}(1, main_window, TCPSocket())
         push!(console_mng,c)
 
         main_window.console_manager = console_mng
@@ -47,5 +50,6 @@ module GtkREPL
 
         showall(main_window)
     end
+    #__init__() = gtkrepl()
 
 end # module

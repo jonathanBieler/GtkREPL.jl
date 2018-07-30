@@ -1,8 +1,8 @@
-mutable struct Console <: GtkScrolledWindow
+mutable struct Console{T<:GtkTextView,B<:GtkTextBuffer} <: GtkScrolledWindow
 
     handle::Ptr{Gtk.GObject}
-    view::GtkTextView
-    buffer::GtkTextBuffer
+    view::T
+    buffer::B
     run_task::Task
     prompt_position::Integer
     prompt::String
@@ -15,10 +15,10 @@ mutable struct Console <: GtkScrolledWindow
     eval_in::Module
     mode::REPLMode
 
-    function Console(w_idx::Int, main_window, worker::TCPSocket)
+    function Console{T,B}(w_idx::Int, main_window, worker::TCPSocket) where {T<:GtkTextView,B<:GtkTextBuffer}
 
-        b = GtkTextBuffer()
-        v = GtkTextView(b)
+        b = B()
+        v = T(b)
 
         prompt = "Main>"
         setproperty!(b,:text,prompt)
@@ -39,6 +39,7 @@ mutable struct Console <: GtkScrolledWindow
         Gtk.gobject_move_ref(n, sc)
     end
 end
+Console(w_idx::Int, main_window, worker::TCPSocket) = Console{GtkTextView,GtkTextBuffer}(w_idx, main_window, worker)
 
 console_manager(c::Console) = console_manager(c.main_window)
 worker(c::Console) = c.worker_idx == 1 ? c.worker_idx : c.worker
