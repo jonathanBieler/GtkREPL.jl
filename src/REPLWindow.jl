@@ -22,7 +22,7 @@ type REPLWindow <: GtkWindow
 
 end
 
-console_manager(main_window::REPLWindow) = main_window.console_manager
+console_manager(main_window::T) where T<:GtkWindow = main_window.console_manager
 
 @guarded (PROPAGATE) function main_window_key_press_cb(widgetptr::Ptr, eventptr::Ptr, user_data)
     event = convert(Gtk.GdkEvent, eventptr)

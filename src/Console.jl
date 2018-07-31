@@ -15,15 +15,16 @@ mutable struct Console{T<:GtkTextView,B<:GtkTextBuffer} <: GtkScrolledWindow
     eval_in::Module
     mode::REPLMode
 
-    function Console{T,B}(w_idx::Int, main_window, worker::TCPSocket) where {T<:GtkTextView,B<:GtkTextBuffer}
+    function Console{T,B}(w_idx::Int, main_window, worker::TCPSocket,
+        init_fun=init_view_buffer!,b_args=()) where {T<:GtkTextView,B<:GtkTextBuffer}
 
-        b = B()
+        b = B(b_args...)
         v = T(b)
 
         prompt = "Main>"
         setproperty!(b,:text,prompt)
-        setproperty!(v,:margin_bottom,10)
-        Gtk.setproperty!(v,:margin_left,4)
+
+        init_fun(v,b)
 
         sc = GtkScrolledWindow()
         setproperty!(sc,:hscrollbar_policy,1)
@@ -40,6 +41,11 @@ mutable struct Console{T<:GtkTextView,B<:GtkTextBuffer} <: GtkScrolledWindow
     end
 end
 Console(w_idx::Int, main_window, worker::TCPSocket) = Console{GtkTextView,GtkTextBuffer}(w_idx, main_window, worker)
+
+function init_view_buffer!(v,b)
+    setproperty!(v,:margin_bottom,10)
+    Gtk.setproperty!(v,:margin_left,4)
+end
 
 console_manager(c::Console) = console_manager(c.main_window)
 worker(c::Console) = c.worker_idx == 1 ? c.worker_idx : c.worker
@@ -173,11 +179,18 @@ function write_output_to_console(user_data)
                 str, v = (t.result, nothing)
             end
 
+            if @eval isdefined(:Gadfly) 
+                typeof(v) <: Gadfly.Plot && display(v)
+            end
+                
             finalOutput = str == nothing ? "" : str
 
             if str == InterruptException()
                 finalOutput = string(str) * "\n"
             end
+
+            info(str)
+
             write(c,finalOutput)
         end
         new_prompt(c)
@@ -601,6 +614,10 @@ function init!(c::Console)
     Cint, (Ptr{Gtk.GdkEvent},), false)
     signal_connect(console_scroll_cb, c.view, "size-allocate", Void,
     (Ptr{Gtk.GdkRectangle},), false,c)
+
+    # Note that due to historical reasons, GtkNotebook refuses to switch to a page unless the child widget is visible.
+    # Therefore, it is recommended to show child widgets before adding them to a notebook.
+    show(c)
     push!(console_manager(c),c)
     set_tab_label_text(console_manager(c),c,"C" * string(length(console_manager(c))))
 end
@@ -665,12 +682,6 @@ end
         #rmprocs(tab.worker_idx) # FIXME
     end
     return nothing
-end
-
-function first_console(main_window)
-    c = Console(1,main_window,TCPSocket())
-    init!(c)
-    c
 end
 
 get_current_console(console_mng::GtkNotebook) = console_mng[index(console_mng)]

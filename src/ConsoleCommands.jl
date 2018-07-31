@@ -24,14 +24,20 @@ add_console_command(r::Regex,f::Function,c::Symbol) = push!(console_commands,Con
 add_console_command(r"^edit (.*):(\d+)",(m,c) -> begin
     try
         line = parse(Int,m.captures[2])
-        open_in_new_tab(m.captures[1],_editor(c),line=line)
+        q = "\""
+        remotecall_fetch(include_string,worker(c),"eval(GtkIDE,:(
+            open_in_new_tab($(q)$(m.captures[1])$(q),line=$(line))
+        ))")
     catch
         println("Invalid line number: $(m.captures[2])")
     end
     nothing
 end,:file)
 add_console_command(r"^edit (.*)",(m,c) -> begin
-    open_in_new_tab(m.captures[1],_editor(c))
+    q = "\""
+    remotecall_fetch(include_string,worker(c),"eval(GtkIDE,:(
+        open_in_new_tab($(q)$(m.captures[1])$(q))
+    ))")
     nothing
 end,:file)
 

@@ -31,16 +31,16 @@ function init_stdout!(console_mng::ConsoleManager,watch_stdout_task,stdout,stder
     console_mng.stderr = stderr
 end
 
-function add_remote_console(main_window)
+function add_remote_console(main_window, mod=GtkREPL)
     port = console_manager(main_window).port
     id = length(console_manager(main_window)) + 1
     p = joinpath(HOMEDIR,"remote_console_startup.jl")
-    s = "tell application \"Terminal\" to do script \"julia -i --color=no \\\"$p\\\" $port $id\""
+    s = "tell application \"Terminal\" to do script \"julia -i --color=no \\\"$p\\\" $port $id $mod\""
     run(`osascript -e $s`)
 end
 
 function add_remote_console_cb(id, port)
-    info("Starting console for port $port with id $id")
+    info("GtkREPL: Starting console for port $port with id $id")
 
     c = try
         worker = connect(port)

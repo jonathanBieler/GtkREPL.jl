@@ -5,7 +5,9 @@ module GtkREPLWorker
     @reexport using RemoteGtkREPL
 
     gtkrepl_port = parse(Int,ARGS[1])
-    global const  id = parse(Int,ARGS[2])
+    global const id = parse(Int,ARGS[2])
+    global const remote_mod = ARGS[3]
+
     port, server = RemoteGtkREPL.start_server()
 
     global const gtkrepl = connect(gtkrepl_port)
@@ -31,9 +33,13 @@ function gadfly()
     end
 end
 
+#start Gadfly by default
+using Gadfly
+gadfly()
+
 # finally register ourself to gtkrepl
 RemoteGtkREPL.remotecall_fetch(include_string, GtkREPLWorker.gtkrepl,"
-    eval(GtkREPL,:(
+    eval($(GtkREPLWorker.remote_mod),:(
         add_remote_console_cb($(GtkREPLWorker.id), $(GtkREPLWorker.port))
     ))
 ")
@@ -46,9 +52,10 @@ RemoteGtkREPL.remotecall_fetch(include_string, GtkREPLWorker.gtkrepl,"
         global const stderr = STDERR
 
         read_stdout, wr = redirect_stdout()
-        watch_stdio_task = @schedule RemoteGtkREPL.watch_stream(read_stdout, GtkREPLWorker.gtkrepl, GtkREPLWorker.id)
+        watch_stdio_task = @schedule RemoteGtkREPL.watch_stream(read_stdout, GtkREPLWorker.gtkrepl, GtkREPLWorker.id, GtkREPLWorker.remote_mod)
 
         #read_stderr, wre = redirect_stderr()
         #watch_stderr_task = @schedule watch_stream(read_stderr,stdout_buffer)
     end
 end
+

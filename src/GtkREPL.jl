@@ -37,11 +37,19 @@ module GtkREPL
         end)
     end
 
+    function gadfly()
+        @eval begin
+            import Gadfly
+            export Gadfly
+        end
+        RemoteGtkREPL.gadfly()
+    end
+
     function gtkrepl(T=GtkTextView,B=GtkTextBuffer)
         global main_window = REPLWindow()
         console_mng = ConsoleManager(main_window)
         c = Console{T,B}(1, main_window, TCPSocket())
-        push!(console_mng,c)
+        #push!(console_mng,c)
 
         main_window.console_manager = console_mng
         push!(main_window,console_mng)
