@@ -49,14 +49,9 @@ module GtkREPL
         global main_window = REPLWindow()
         console_mng = ConsoleManager(main_window)
         c = Console{T,B}(1, main_window, TCPSocket())
-        #push!(console_mng,c)
 
-        main_window.console_manager = console_mng
-        push!(main_window,console_mng)
+        init!(main_window,console_mng,c)
 
-        init!(c)
-
-        showall(main_window)
     end
     #__init__() = gtkrepl()
 

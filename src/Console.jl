@@ -131,6 +131,7 @@ function on_return(c::Console,cmd::String)
     end
 
     c.run_task_start_time = time()
+    GtkExtensions.text(c.main_window.statusBar,"Busy")
 
     g_timeout_add(50,write_output_to_console,(c,found))
     nothing
@@ -189,8 +190,6 @@ function write_output_to_console(user_data)
                 finalOutput = string(str) * "\n"
             end
 
-            info(str)
-
             write(c,finalOutput)
         end
         new_prompt(c)
@@ -198,10 +197,10 @@ function write_output_to_console(user_data)
         write(c,sprint(showerror,other_err))
         new_prompt(c)
     end
-    #on_path_change(c.main_window)
+    on_command_done(c.main_window)
 
     t = @sprintf("%4.6f",time()-c.run_task_start_time)
-    #GtkExtensions.text(c.main_window.statusBar,"Run time $(t)s")
+    GtkExtensions.text(c.main_window.statusBar,"Run time $(t)s")
 
     return Cint(false)
 end

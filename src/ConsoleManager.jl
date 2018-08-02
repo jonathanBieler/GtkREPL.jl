@@ -11,6 +11,7 @@ mutable struct ConsoleManager <: GtkNotebook
     function ConsoleManager(main_window)
 
         ntb = GtkNotebook()
+        setproperty!(ntb,:vexpand,true)
         port, server = RemoteGtkREPL.start_server()
 
         n = new(ntb.handle, main_window, server, port)
