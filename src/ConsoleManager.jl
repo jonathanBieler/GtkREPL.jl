@@ -23,7 +23,7 @@ function init!(console_mng::ConsoleManager)
 
     signal_connect(console_mng_button_press_cb,console_mng, "button-press-event",
     Cint, (Ptr{Gtk.GdkEvent},),false,console_mng.main_window)
-    signal_connect(console_mng_switch_page_cb,console_mng,"switch-page", Void, (Ptr{Gtk.GtkWidget},Int32), false)
+    signal_connect(console_mng_switch_page_cb,console_mng,"switch-page", Nothing, (Ptr{Gtk.GtkWidget},Int32), false)
 end
 
 function init_stdout!(console_mng::ConsoleManager,watch_stdout_task,stdout,stderr)

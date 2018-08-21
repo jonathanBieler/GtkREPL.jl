@@ -1,4 +1,4 @@
-type REPLWindow <: GtkWindow
+mutable struct REPLWindow <: GtkWindow
 
     handle::Ptr{Gtk.GObject}
     console_manager

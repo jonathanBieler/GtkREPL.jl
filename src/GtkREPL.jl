@@ -1,4 +1,3 @@
-__precompile__()
 module GtkREPL
     using Gtk
     using RemoteGtkREPL

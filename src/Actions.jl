@@ -14,7 +14,7 @@ end
 end
 global const NoModifier  = zero(typeof(PrimaryModifier))
 
-type Action
+mutable struct Action
     keyval::Integer
     state::Integer
     description::AbstractString

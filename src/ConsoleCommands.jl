@@ -10,13 +10,13 @@ Commands that are first executed in the console before Julia code.
 - `open name` : open name with default application (e.g. `open .` opens the current directory).
 - `mkdir dirname` : make a new directory.
 "
-type ConsoleCommand
+mutable struct ConsoleCommand
 	r::Regex
 	f::Function
 	completion_context::Symbol
 end
 
-global const console_commands = Array{ConsoleCommand}(0)
+global const console_commands = Array{ConsoleCommand}(undef, 0)
 add_console_command(r::Regex,f::Function) = push!(console_commands,ConsoleCommand(r,f,:normal))
 add_console_command(r::Regex,f::Function,c::Symbol) = push!(console_commands,ConsoleCommand(r,f,c))
 
@@ -126,7 +126,7 @@ add_console_command(r"^evalin (.*)",(m,c) -> begin
         v = m.captures[1]
         v == "?" && return string(c.eval_in) * "\n"
 
-        m = eval(Main,parse(v))
+        m = eval(Main,Meta.parse(v))
         typeof(m) != Module && error("evalin : $v is not a module")
         c.eval_in = m
 	catch err

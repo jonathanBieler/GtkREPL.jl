@@ -141,6 +141,7 @@ function kill_current_task(c::Console)
     try #otherwise this makes the callback fail in some versions
         #@schedule Base.throwto(c.run_task, InterruptException())
         !isdone(c) && interrupt_task(c)
+    catch
     end
 end
 
@@ -520,7 +521,7 @@ end
 ## Auto-complete
 
 function complete_additional_symbols(str,S)
-    comp = Array{String}(0)
+    comp = Array{String}(undef, 0)
     for s in S
         startswith(s,str) && push!(comp,s)
     end
@@ -611,7 +612,7 @@ function init!(c::Console)
     Cint, (Ptr{Gtk.GdkEvent},),false,c)
     signal_connect(console_motion_notify_event_cb,c, "motion-notify-event",
     Cint, (Ptr{Gtk.GdkEvent},), false)
-    signal_connect(console_scroll_cb, c.view, "size-allocate", Void,
+    signal_connect(console_scroll_cb, c.view, "size-allocate", Nothing,
     (Ptr{Gtk.GdkRectangle},), false,c)
 
     # Note that due to historical reasons, GtkNotebook refuses to switch to a page unless the child widget is visible.
@@ -701,7 +702,7 @@ end
 ## REDIRECT_STDOUT for main console
 
 function send_stream(rd::IO, stdout_buffer::IO)
-    nb = nb_available(rd)
+    nb = bytesavailable(rd)
     if nb > 0
         d = read(rd, nb)
         s = String(copy(d))
