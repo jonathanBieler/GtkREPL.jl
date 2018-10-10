@@ -1,12 +1,12 @@
 # put important things in a module for safety
+using RemoteGtkREPL
 module GtkREPLWorker
 
-    using Reexport
-    @reexport using RemoteGtkREPL
+    using RemoteGtkREPL
 
     gtkrepl_port = parse(Int,ARGS[1])
-    global const id = parse(Int,ARGS[2])
-    global const remote_mod = ARGS[3]
+    global const id = parse(Int,ARGS[2]) # console/worker id
+    global const remote_mod = ARGS[3]    # the module calling us as a String
 
     port, server = RemoteGtkREPL.start_server()
 
@@ -34,8 +34,8 @@ function gadfly()
 end
 
 #start Gadfly by default
-using Gadfly
-gadfly()
+#using Gadfly
+#gadfly()
 
 # finally register ourself to gtkrepl
 RemoteGtkREPL.remotecall_fetch(include_string, GtkREPLWorker.gtkrepl,"
@@ -44,18 +44,20 @@ RemoteGtkREPL.remotecall_fetch(include_string, GtkREPLWorker.gtkrepl,"
     ))
 ")
 
-@schedule begin
-    isinteractive() && sleep(0.1)
-    if !isdefined(:watch_stdio_task)
+if true
+        @async begin
+        isinteractive() && sleep(0.1)
+        if !isdefined(:watch_stdio_task)
 
-        global const stdout = STDOUT
-        global const stderr = STDERR
+            global const stdout = STDOUT
+            global const stderr = STDERR
 
-        read_stdout, wr = redirect_stdout()
-        watch_stdio_task = @schedule RemoteGtkREPL.watch_stream(read_stdout, GtkREPLWorker.gtkrepl, GtkREPLWorker.id, GtkREPLWorker.remote_mod)
+            read_stdout, wr = redirect_stdout()
+            watch_stdio_task = @async RemoteGtkREPL.watch_stream(read_stdout, GtkREPLWorker.gtkrepl, GtkREPLWorker.id, GtkREPLWorker.remote_mod)
 
-        #read_stderr, wre = redirect_stderr()
-        #watch_stderr_task = @schedule watch_stream(read_stderr,stdout_buffer)
+            #read_stderr, wre = redirect_stderr()
+            #watch_stderr_task = @async watch_stream(read_stderr,stdout_buffer)
+        end
     end
 end
 

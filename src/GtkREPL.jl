@@ -4,17 +4,24 @@ module GtkREPL
     using GtkExtensions
     using JuliaWordsUtils
     using GtkTextUtils
-
+    using Sockets, Distributed, Printf, REPL
+    
     import Gtk.GtkTextIter
-    import Base.REPLCompletions.completions
+    import REPL.REPLCompletions.completions
+    import Sockets: TCPServer
 
-    export repl
+    export repl, RemoteGtkREPL
 
     global const HOMEDIR = @__DIR__
     global const PROPAGATE = convert(Cint,false)
     global const INTERRUPT = convert(Cint,true)
 
     global const fontsize = 13
+    
+    global main_window = nothing #need to be defined at init
+    function set_main_window(w)
+        global main_window = w
+    end 
 
     include("Actions.jl")
     include("REPLWindow.jl")
@@ -44,12 +51,46 @@ module GtkREPL
         RemoteGtkREPL.gadfly()
     end
 
+    function send_stream(rd::IO)
+        nb = bytesavailable(rd)
+        if nb > 0
+            d = read(rd, nb)
+            s = String(copy(d))
+            if !isempty(s)
+                try 
+                    print_to_console_remote(s,1)
+                catch err
+                    @warn err
+                end
+            end
+        end
+    end
+    
+    function watch_stream(rd::IO)
+        while !eof(rd) # blocks until something is available
+            send_stream(rd)
+            sleep(0.01) # a little delay to accumulate output
+        end
+    end
+
     function gtkrepl(T=GtkTextView,B=GtkTextBuffer)
+        global is_running = true
         global main_window = REPLWindow()
         console_mng = ConsoleManager(main_window)
         c = Console{T,B}(1, main_window, TCPSocket())
 
         init!(main_window,console_mng,c)
+        init!(console_mng)
+        init!(c)
+        showall(main_window)
+
+        @async begin
+            isinteractive() && sleep(0.1)
+            if !isdefined(:watch_stdio_task)
+                global read_stdout, wr = redirect_stdout()
+                global watch_stdio_task = @async watch_stream(read_stdout)
+            end
+        end
 
     end
     #__init__() = gtkrepl()

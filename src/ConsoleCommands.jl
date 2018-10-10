@@ -46,11 +46,12 @@ add_console_command(r"^clc$",(m,c) -> begin
     nothing
 end)
 add_console_command(r"^pwd$",(m,c) -> begin
-    return pwd() * "\n"
+    return remotecall_fetch(pwd,worker(c)) * "\n"
 end)
 add_console_command(r"^ls\s+(.*)",(m,c) -> begin
-	try
-        files = m.captures[1] == "" ? readdir() : readdir(m.captures[1])
+    try
+        f(args...) = remotecall_fetch(readdir,worker(c),args...)
+        files = m.captures[1] == "" ? f() : f(m.captures[1])
         s = ""
         for f in files
             s = string(s,f,"\n")
@@ -80,16 +81,17 @@ add_console_command(r"^cd (.*)",(m,c) -> begin
 	        if isdefined(Symbol(v))
 	            v = eval(Symbol("HOMEDIR"))
 	        end
-	    end
-	    cd(v)
-		return pwd() * "\n"
+        end
+        remotecall_fetch(cd,worker(c),v)
+	    
+		return remotecall_fetch(pwd,worker(c)) * "\n"
 	catch err
 		return sprint(show,err) * "\n"
 	end
 end,:file)
 add_console_command(r"^\?\s*(.*)",(m,c) -> begin
     try
-        h = Symbol(m.captures[1])
+        h = Symbol(m.captures[1])#TODO: run this on worker
         h = Base.doc(Base.Docs.Binding(
             Base.Docs.current_module(),h)
         )
@@ -102,20 +104,21 @@ end)
 add_console_command(r"^open (.*)",(m,c) -> begin
 	try
         v = m.captures[1]
-        @static if is_windows()
-            run(`cmd /c start "$v" `)
+        if Sys.iswindows()
+            remotecall_fetch(run,worker(c),`cmd /c start "$v" `)
         end
-        @static if is_apple()
-            run(`open $v`)
+        if Sys.isapple()
+            remotecall_fetch(run,worker(c),`open $v`)
         end
+        return "\n"
 	catch err
 		return sprint(show,err) * "\n"
-	end
+    end
 end,:file)
 add_console_command(r"^mkdir (.*)",(m,c) -> begin
 	try
         v = m.captures[1]
-        mkdir(v)
+        remotecall_fetch(mkdir,worker(c),v)
 	catch err
 		return sprint(show,err) * "\n"
 	end
@@ -160,7 +163,7 @@ function check_console_commands(cmd::AbstractString,c::Console)
     for co in console_commands
         m = match(co.r,cmd)
         if m != nothing
-            return (true, @schedule begin co.f(m,c) end)
+            return (true, @async begin co.f(m,c) end)
         end
     end
     return (false, nothing)

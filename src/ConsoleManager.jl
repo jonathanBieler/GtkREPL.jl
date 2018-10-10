@@ -2,7 +2,7 @@ mutable struct ConsoleManager <: GtkNotebook
 
     handle::Ptr{Gtk.GObject}
     main_window
-    server::Base.TCPServer
+    server::TCPServer
     port::UInt16
     watch_stdout_task::Task
     stdout
@@ -11,7 +11,7 @@ mutable struct ConsoleManager <: GtkNotebook
     function ConsoleManager(main_window)
 
         ntb = GtkNotebook()
-        setproperty!(ntb,:vexpand,true)
+        set_gtk_property!(ntb,:vexpand,true)
         port, server = RemoteGtkREPL.start_server()
 
         n = new(ntb.handle, main_window, server, port)
@@ -21,6 +21,7 @@ end
 
 function init!(console_mng::ConsoleManager)
 
+    # add a task in Gtk's main main that writes stdout buffer in the console
     signal_connect(console_mng_button_press_cb,console_mng, "button-press-event",
     Cint, (Ptr{Gtk.GdkEvent},),false,console_mng.main_window)
     signal_connect(console_mng_switch_page_cb,console_mng,"switch-page", Nothing, (Ptr{Gtk.GtkWidget},Int32), false)
@@ -36,7 +37,8 @@ function add_remote_console(main_window, mod=GtkREPL)
     port = console_manager(main_window).port
     id = length(console_manager(main_window)) + 1
     p = joinpath(HOMEDIR,"remote_console_startup.jl")
-    s = "tell application \"Terminal\" to do script \"julia -i --color=no \\\"$p\\\" $port $id $mod\""
+    juliapath = ENV["_"] #what kind of variable name is this ?
+    s = "tell application \"Terminal\" to do script \"$juliapath -i --color=no \\\"$p\\\" $port $id $mod\""
     run(`osascript -e $s`)
 end
 
@@ -45,17 +47,22 @@ function add_remote_console_cb(id, port)
 
     c = try
         worker = connect(port)
+
         c = Console(id, main_window, worker)
+        c.worker_port = port
         init!(c)
+
+        #for some reason I need to warm-up things here, otherwise it bugs later on.
+        isdone(c)
+        @assert remotecall_fetch(identity,GtkREPL.worker(c),1) == 1
+
         showall(c.main_window)
         c
     catch err
         warn(err)
     end
 
-    RemoteGtkREPL.remotecall_fetch(info, worker(c),"Initializing worker...")
-
-    g_timeout_add(100,print_to_console,c)
+    RemoteGtkREPL.remotecall_fetch(println, worker(c),"Worker connected")
     "done"
 end
 

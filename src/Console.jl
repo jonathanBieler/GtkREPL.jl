@@ -8,6 +8,7 @@ mutable struct Console{T<:GtkTextView,B<:GtkTextBuffer} <: GtkScrolledWindow
     prompt::String
     stdout_buffer::IOBuffer
     worker::TCPSocket
+    worker_port::Int
     worker_idx::Int
     history::HistoryProvider
     run_task_start_time::AbstractFloat
@@ -22,19 +23,19 @@ mutable struct Console{T<:GtkTextView,B<:GtkTextBuffer} <: GtkScrolledWindow
         v = T(b)
 
         prompt = "Main>"
-        setproperty!(b,:text,prompt)
+        set_gtk_property!(b,:text,prompt)
 
         init_fun(v,b)
 
         sc = GtkScrolledWindow()
-        setproperty!(sc,:hscrollbar_policy,1)
+        set_gtk_property!(sc,:hscrollbar_policy,1)
         push!(sc,v)
 
-        t = @schedule begin end
+        t = @async begin end
         history = setup_history(w_idx)
         worker = worker == nothing ? w_idx : worker
 
-        n = new(sc.handle,v,b,t,length(prompt)+1,prompt,IOBuffer(),worker,w_idx,
+        n = new(sc.handle,v,b,t,length(prompt)+1,prompt,IOBuffer(),worker,0,w_idx,
             history,time(),main_window,Main,NormalMode()
         )
         Gtk.gobject_move_ref(n, sc)
@@ -43,8 +44,8 @@ end
 Console(w_idx::Int, main_window, worker::TCPSocket) = Console{GtkTextView,GtkTextBuffer}(w_idx, main_window, worker)
 
 function init_view_buffer!(v,b)
-    setproperty!(v,:margin_bottom,10)
-    Gtk.setproperty!(v,:margin_left,4)
+    set_gtk_property!(v,:margin_bottom,10)
+    set_gtk_property!(v,:margin_left,4)
 end
 
 console_manager(c::Console) = console_manager(c.main_window)
@@ -104,17 +105,35 @@ function new_prompt(c::Console)
 end
 
 function clear(c::Console)
-    setproperty!(c.buffer,:text,"")
+    set_gtk_property!(c.buffer,:text,"")
 end
 
 ##
+function check_worker(c::Console)
+    c.worker_idx == 1 && return true
+    s = worker(c)
+    if s.status < Sockets.StatusConnecting
+        @info "worker not connect, try to reconnect on port $(c.worker_port)"
+        try 
+            c.worker = connect(c.worker_port)
+        catch err
+            @warn err
+            return false
+        end
+    end
+    return true
+end
 
-function on_return(c::Console,cmd::String)
+function on_return(c::Console,cmd::AbstractString)
 
-    cmd = strip(cmd)
+    cmd = string(strip(cmd))#avoid getting a substring
     buffer = c.buffer
 
     write(c,"\n")
+    if !check_worker(c) 
+        write(c,"Couldn't connect to worker\n")
+        return
+    end
 
     push!(c.history,cmd)
     seek_end(c.history)
@@ -139,7 +158,7 @@ end
 
 function kill_current_task(c::Console)
     try #otherwise this makes the callback fail in some versions
-        #@schedule Base.throwto(c.run_task, InterruptException())
+        #@async Base.throwto(c.run_task, InterruptException())
         !isdone(c) && interrupt_task(c)
     catch
     end
@@ -147,6 +166,7 @@ end
 
 interrupt_task(c::Console) = remotecall_fetch(RemoteGtkREPL.interrupt_task,worker(c))
 isdone(c::Console) = remotecall_fetch(RemoteGtkREPL.isdone,worker(c))
+#isdone(c::Console) = remotecall_fetch(include_string, worker(c), Main,"RemoteGtkREPL.isdone()")
 
 "Wait for the running task to end and print the result in the console.
 Run from Gtk main loop."
@@ -160,7 +180,7 @@ function write_output_to_console(user_data)
     else
         # if a worker is busy computing things it will block here
         # so I just check for a short duration if it's done
-        isdone_t = @schedule isdone(c)
+        isdone_t = @async isdone(c)
         start = time()
         while (isdone_t.state != :done) && ((time()-start) < 0.01)
             sleep(0.001)
@@ -170,6 +190,10 @@ function write_output_to_console(user_data)
 
         #!isdone(c) && return Cint(true)
         t = remotecall_fetch(run_task,worker(c))
+        if typeof(t) != Task
+            c.worker = connect(c.worker_port)
+            t = remotecall_fetch(run_task,worker(c))
+        end
     end
 
     try
@@ -237,7 +261,7 @@ function cursor_position(c::Console)
     b = cursor_position(c.buffer)
     b-a+1
 end
-cursor_position(b::GtkTextBuffer) = getproperty(b,:cursor_position,Int)
+cursor_position(b::GtkTextBuffer) = get_gtk_property(b,:cursor_position,Int)
 
 function select_on_ctrl_shift(direction,c::Console)
 
@@ -272,10 +296,10 @@ ismodkey(event::Gtk.GdkEvent,mod::Integer) =
 
 
 before_prompt(console,pos::Integer) = pos+1 < console.prompt_position
-before_prompt(console) = before_prompt(console,getproperty(console.buffer,:cursor_position,Int) )
+before_prompt(console) = before_prompt(console,get_gtk_property(console.buffer,:cursor_position,Int) )
 
 before_or_at_prompt(console,pos::Integer) = pos+1 <= console.prompt_position
-before_or_at_prompt(console) = before_or_at_prompt(console,getproperty(console.buffer,:cursor_position,Int))
+before_or_at_prompt(console) = before_or_at_prompt(console,get_gtk_property(console.buffer,:cursor_position,Int))
 at_prompt(console,pos::Integer) = pos+1 == console.prompt_position
 
 function iters_at_console_prompt(console)
@@ -402,16 +426,16 @@ end
     end
     if doing(Actions["copy"],event)
         auto_select_prompt(found, console, buffer)
-        signal_emit(textview, "copy-clipboard", Void)
+        signal_emit(textview, "copy-clipboard", Nothing)
         return INTERRUPT
     end
     if doing(Actions["paste"],event)
-        signal_emit(textview, "paste-clipboard", Void)
+        signal_emit(textview, "paste-clipboard", Nothing)
         return INTERRUPT
     end
     if doing(Actions["cut"],event)
         auto_select_prompt(found, console, buffer)
-        signal_emit(textview, "cut-clipboard", Void)
+        signal_emit(textview, "cut-clipboard", Nothing)
         return INTERRUPT
     end
 
@@ -454,7 +478,7 @@ cfunction(_callback_only_for_return, Cint, (Ptr{Console},Ptr{Gtk.GdkEvent},Conso
 
     textview = convert(GtkTextView, widgetptr)
     event = convert(Gtk.GdkEvent, eventptr)
-    buffer = getproperty(textview,:buffer,GtkTextBuffer)
+    buffer = get_gtk_property(textview,:buffer,GtkTextBuffer)
     console = user_data
     main_window = console.main_window
 
@@ -507,13 +531,13 @@ end
 function console_scroll_cb(widgetptr::Ptr, rectptr::Ptr, user_data)
 
     c = user_data
-    adj = getproperty(c,:vadjustment, GtkAdjustment)
-    setproperty!(adj,:value,
-        getproperty(adj,:upper,AbstractFloat) -
-        getproperty(adj,:page_size,AbstractFloat)
+    adj = get_gtk_property(c,:vadjustment, GtkAdjustment)
+    set_gtk_property!(adj,:value,
+        get_gtk_property(adj,:upper,AbstractFloat) -
+        get_gtk_property(adj,:page_size,AbstractFloat)
     )
-    adj = getproperty(c,:hadjustment, GtkAdjustment)
-    setproperty!(adj,:value,0)
+    adj = get_gtk_property(c,:hadjustment, GtkAdjustment)
+    set_gtk_property!(adj,:value,0)
 
     nothing
 end
@@ -528,6 +552,7 @@ function complete_additional_symbols(str,S)
     comp
 end
 
+# TODO use the same code than in the editor
 function autocomplete(c::Console,cmd::AbstractString,pos::Integer)
 
     isempty(cmd) && return
@@ -550,16 +575,17 @@ function autocomplete(c::Console,cmd::AbstractString,pos::Integer)
     end
     if ctx == :file
         (comp,dotpos) = remotecall_fetch(Base.REPL.shell_completions,worker(c),cmd, endof(cmd))
+        comp = REPL.completion_text.(comp)
     end
 
     update_completions(c,comp,dotpos,cmd,lastpart)
 end
 
-#FIXME GtkIDE
 function completions_in_module(cmd,c::Console)
     prefix = string(c.eval_in,".")
-    comp,dotpos = remotecall_fetch(completions,worker(c),prefix * cmd, endof(prefix * cmd))
+    comp,dotpos = remotecall_fetch(completions, worker(c), prefix * cmd, endof(prefix * cmd))
     dotpos -= endof(prefix)
+    comp = REPL.completion_text.(comp)
     comp,dotpos
 end
 
@@ -620,11 +646,11 @@ function init!(c::Console)
     show(c)
     push!(console_manager(c),c)
     set_tab_label_text(console_manager(c),c,"C" * string(length(console_manager(c))))
+    g_timeout_add(100,print_to_console,c)
 end
 
 "Run from the main Gtk loop, and print to console
 the content of stdout_buffer"
-global const is_running = true#FIXME
 function print_to_console(user_data)
 
     console = unsafe_pointer_to_objref(user_data)
@@ -634,7 +660,6 @@ function print_to_console(user_data)
         s = translate_colors(s)
         write(console,s)
     end
-
     if is_running
         return Cint(true)
     else
@@ -655,33 +680,37 @@ end
 
 @guarded (nothing) function toggle_wrap_mode_cb(btn::Ptr, user_data)
     ntbook, tab, main_window = user_data
-    toggle_wrap_mode(tab.view)
-    return nothing
+    tab.view.wrap_mode[Int] = !Bool(tab.view.wrap_mode[Int])
+    nothing
 end
 @guarded (nothing) function clear_console_cb(btn::Ptr, user_data)
     ntbook, tab, main_window = user_data
     clear(tab)
     new_prompt(tab)
-    return nothing
+    nothing
 end
 @guarded (nothing) function kill_current_task_cb(btn::Ptr, user_data)
     ntbook, tab, main_window = user_data
     kill_current_task(tab)
-    return nothing
+    nothing
 end
 @guarded (nothing) function add_console_cb(btn::Ptr, user_data)
     ntbook, tab, main_window = user_data
-    add_console(main_window)
-    return nothing
+    #add_console(main_window)
+    add_remote_console(main_window,GtkREPL)
+    nothing
 end
 @guarded (nothing) function remove_console_cb(btn::Ptr, user_data)
     ntbook, tab, main_window = user_data
     idx = index(ntbook,tab)
     if idx != 1#can't close the main console
-        close_tab(ntbook,idx)
+        c = ntbook[idx]
+        remotecall_fetch(info,worker(c),"Goodbye.")
+        splice!(ntbook,idx)
+        set_current_page_idx(ntbook,max(idx-1,0))
         #rmprocs(tab.worker_idx) # FIXME
     end
-    return nothing
+    nothing
 end
 
 get_current_console(console_mng::GtkNotebook) = console_mng[index(console_mng)]
@@ -689,7 +718,7 @@ get_current_console(console_mng::GtkNotebook) = console_mng[index(console_mng)]
 #this is called by remote workers
 function print_to_console_remote(s,idx::Integer)
 
-    #print the output to the right console
+    #copy the output to the right console buffer
     for i = 1:length(main_window.console_manager)
         c = get_tab(main_window.console_manager,i)
 

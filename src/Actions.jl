@@ -1,14 +1,14 @@
 import Gtk.GConstants.GdkModifierType, Gtk.GConstants.GdkModifierType.SHIFT
 
-@static if is_apple()
+if Sys.isapple()
     global const PrimaryModifier = GdkModifierType.MOD2
     global const SecondaryModifer = GdkModifierType.CONTROL
 end
-@static if is_windows()
+if Sys.iswindows()
     global const PrimaryModifier = GdkModifierType.CONTROL
     global const SecondaryModifer = GdkModifierType.MOD1 #alt key
 end
-@static if is_linux()
+if Sys.islinux()
     global const PrimaryModifier = GdkModifierType.CONTROL
     global const SecondaryModifer = GdkModifierType.MOD1
 end
@@ -31,7 +31,7 @@ function doing(a::Action, event::Gtk.GdkEvent)
 
     mod = get_default_mod_mask()
     #on os x, the command key is also the meta key
-    @static if is_apple()
+    if Sys.isapple()
         if a.state == NoModifier && event.state == NoModifier
              return event.keyval == a.keyval
         end

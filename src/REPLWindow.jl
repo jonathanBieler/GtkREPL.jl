@@ -28,7 +28,7 @@ function init!(w::REPLWindow,console_mng,c)
 
     main_window.console_manager = console_mng
     main_window.statusBar = GtkStatusbar()
-    setproperty!(main_window.statusBar,:margin,2)
+    set_gtk_property!(main_window.statusBar,:margin,2)
     GtkExtensions.text(main_window.statusBar,"Julia $VERSION")
 
     main_window |> 
@@ -36,9 +36,6 @@ function init!(w::REPLWindow,console_mng,c)
             console_mng |>
             main_window.statusBar
         )
-
-    init!(c)
-    showall(main_window)
 end
 
 console_manager(main_window::T) where T<:GtkWindow = main_window.console_manager
