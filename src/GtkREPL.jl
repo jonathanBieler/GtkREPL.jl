@@ -74,7 +74,6 @@ module GtkREPL
     end
 
     function gtkrepl(T=GtkTextView,B=GtkTextBuffer)
-        global is_running = true
         global main_window = REPLWindow()
         console_mng = ConsoleManager(main_window)
         c = Console{T,B}(1, main_window, TCPSocket())
@@ -93,6 +92,9 @@ module GtkREPL
         end
 
     end
-    #__init__() = gtkrepl()
+    
+    function __init__() 
+        global is_running = true
+    end
 
 end # module

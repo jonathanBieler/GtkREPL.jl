@@ -574,7 +574,7 @@ function autocomplete(c::Console,cmd::AbstractString,pos::Integer)
         comp,dotpos = completions_in_module(cmd,c)
     end
     if ctx == :file
-        (comp,dotpos) = remotecall_fetch(Base.REPL.shell_completions,worker(c),cmd, endof(cmd))
+        (comp,dotpos) = remotecall_fetch(Base.REPL.shell_completions,worker(c),cmd, lastindex(cmd))
         comp = REPL.completion_text.(comp)
     end
 
@@ -583,8 +583,8 @@ end
 
 function completions_in_module(cmd,c::Console)
     prefix = string(c.eval_in,".")
-    comp,dotpos = remotecall_fetch(completions, worker(c), prefix * cmd, endof(prefix * cmd))
-    dotpos -= endof(prefix)
+    comp,dotpos = remotecall_fetch(completions, worker(c), prefix * cmd, lastindex(prefix * cmd))
+    dotpos -= lastindex(prefix)
     comp = REPL.completion_text.(comp)
     comp,dotpos
 end
@@ -671,10 +671,10 @@ end
 #FIXME dirty hack?
 function translate_colors(s::AbstractString)
 
-    s = replace(s,"\e[1m\e[31m","* ")
-    s = replace(s,"\e[1m\e[32m","* ")
-    s = replace(s,"\e[1m\e[31","* ")
-    s = replace(s,"\e[0m","")
+    s = replace(s,"\e[1m\e[31m" => "* ")
+    s = replace(s,"\e[1m\e[32m" => "* ")
+    s = replace(s,"\e[1m\e[31" => "* ")
+    s = replace(s,"\e[0m" => "")
     s
 end
 

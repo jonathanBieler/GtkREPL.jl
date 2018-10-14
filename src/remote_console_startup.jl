@@ -34,8 +34,8 @@ function gadfly()
 end
 
 #start Gadfly by default
-#using Gadfly
-#gadfly()
+using Gadfly
+gadfly()
 
 # finally register ourself to gtkrepl
 RemoteGtkREPL.remotecall_fetch(include_string, GtkREPLWorker.gtkrepl,"
