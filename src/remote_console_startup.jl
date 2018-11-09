@@ -47,7 +47,7 @@ RemoteGtkREPL.remotecall_fetch(include_string, GtkREPLWorker.gtkrepl,"
 if true
         @async begin
         isinteractive() && sleep(0.1)
-        if !isdefined(:watch_stdio_task)
+        if !@isdefined watch_stdio_task
 
             global const stdout = STDOUT
             global const stderr = STDERR

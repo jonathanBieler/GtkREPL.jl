@@ -21,32 +21,32 @@ add_console_command(r::Regex,f::Function) = push!(console_commands,ConsoleComman
 add_console_command(r::Regex,f::Function,c::Symbol) = push!(console_commands,ConsoleCommand(r,f,c))
 
 #first try to match line number
-add_console_command(r"^edit (.*):(\d+)",(m,c) -> begin
-    try
-        line = parse(Int,m.captures[2])
-        q = "\""
-        remotecall_fetch(include_string,worker(c),"eval(GtkIDE,:(
-            open_in_new_tab($(q)$(m.captures[1])$(q),line=$(line))
-        ))")
-    catch
-        println("Invalid line number: $(m.captures[2])")
-    end
-    nothing
-end,:file)
-add_console_command(r"^edit (.*)",(m,c) -> begin
-    q = "\""
-    remotecall_fetch(include_string,worker(c),"eval(GtkIDE,:(
-        open_in_new_tab($(q)$(m.captures[1])$(q))
-    ))")
-    nothing
-end,:file)
+#add_console_command(r"^edit (.*):(\d+)",(m,c) -> begin
+#    try
+#        line = parse(Int,m.captures[2])
+#        q = "\""
+#        remotecall_fetch(include_string,worker(c),"eval(GtkIDE,:(
+#            open_in_new_tab($(q)$(m.captures[1])$(q),line=$(line))
+#        ))")
+#    catch
+#        println("Invalid line number: $(m.captures[2])")
+#    end
+#    nothing
+#end,:file)
+#add_console_command(r"^edit (.*)",(m,c) -> begin
+#    q = "\""
+#    remotecall_fetch(include_string,worker(c),"eval(GtkIDE,:(
+#        open_in_new_tab($(q)$(m.captures[1])$(q))
+#    ))")
+#    nothing
+#end,:file)
 
 add_console_command(r"^clc$",(m,c) -> begin
     clear(c)
     nothing
 end)
 add_console_command(r"^pwd$",(m,c) -> begin
-    return remotecall_fetch(pwd,worker(c)) * "\n"
+    return pwd(c) * "\n"
 end)
 add_console_command(r"^ls\s+(.*)",(m,c) -> begin
     try
@@ -77,14 +77,12 @@ end,:file)
 add_console_command(r"^cd (.*)",(m,c) -> begin
 	try
         v = m.captures[1]
-	    if !isdir(v)
-	        if isdefined(Symbol(v))
-	            v = eval(Symbol("HOMEDIR"))
-	        end
+	    if !remotecall_fetch(isdir,worker(c),v)
+            return "cd: $v: No such file or directory"
         end
         remotecall_fetch(cd,worker(c),v)
 	    
-		return remotecall_fetch(pwd,worker(c)) * "\n"
+		return pwd(c) * "\n"
 	catch err
 		return sprint(show,err) * "\n"
 	end
@@ -95,7 +93,7 @@ add_console_command(r"^\?\s*(.*)",(m,c) -> begin
         h = Base.doc(Base.Docs.Binding(
             Base.Docs.current_module(),h)
         )
-        h = Base.Markdown.plain(h)
+        h = Markdown.plain(h)
         return h
     catch err
         return sprint(show,err) * "\n"
@@ -129,7 +127,7 @@ add_console_command(r"^evalin (.*)",(m,c) -> begin
         v = m.captures[1]
         v == "?" && return string(c.eval_in) * "\n"
 
-        m = eval(Main,Meta.parse(v))
+        m = Core.eval(Main,Meta.parse(v))
         typeof(m) != Module && error("evalin : $v is not a module")
         c.eval_in = m
 	catch err

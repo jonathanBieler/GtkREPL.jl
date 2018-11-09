@@ -6,7 +6,7 @@ module GtkREPL
     using GtkTextUtils
     using Sockets, Distributed, Printf, REPL
     
-    import Gtk.GtkTextIter
+    import Gtk: GtkTextIter, get_default_mod_mask
     import REPL.REPLCompletions.completions
     import Sockets: TCPServer
 
@@ -85,7 +85,7 @@ module GtkREPL
 
         @async begin
             isinteractive() && sleep(0.1)
-            if !isdefined(:watch_stdio_task)
+            if !@isdefined watch_stdio_task
                 global read_stdout, wr = redirect_stdout()
                 global watch_stdio_task = @async watch_stream(read_stdout)
             end

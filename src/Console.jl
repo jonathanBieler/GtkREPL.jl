@@ -51,6 +51,8 @@ end
 console_manager(c::Console) = console_manager(c.main_window)
 worker(c::Console) = c.worker_idx == 1 ? c.worker_idx : c.worker
 
+Base.pwd(c::Console) = remotecall_fetch(pwd, worker(c))
+
 import Base.write
 function write(c::Console,str::AbstractString)
     insert!(c.buffer,end_iter(c.buffer),str)
@@ -150,7 +152,7 @@ function on_return(c::Console,cmd::AbstractString)
     end
 
     c.run_task_start_time = time()
-    GtkExtensions.text(c.main_window.statusBar,"Busy")
+    push!(c.main_window.statusBar,"console","Busy")
 
     g_timeout_add(50,write_output_to_console,(c,found))
     nothing
@@ -172,7 +174,7 @@ isdone(c::Console) = remotecall_fetch(RemoteGtkREPL.isdone,worker(c))
 Run from Gtk main loop."
 function write_output_to_console(user_data)
 
-    c, is_console_command = unsafe_pointer_to_objref(user_data)
+    c, is_console_command = user_data
 
     if is_console_command
         t = c.run_task
@@ -205,7 +207,7 @@ function write_output_to_console(user_data)
                 str, v = (t.result, nothing)
             end
 
-            if @eval isdefined(:Gadfly) 
+            if @eval @isdefined Gadfly
                 typeof(v) <: Gadfly.Plot && display(v)
             end
                 
@@ -222,10 +224,11 @@ function write_output_to_console(user_data)
         write(c,sprint(showerror,other_err))
         new_prompt(c)
     end
-    on_command_done(c.main_window)
+
+    on_command_done(c.main_window,c)
 
     t = @sprintf("%4.6f",time()-c.run_task_start_time)
-    GtkExtensions.text(c.main_window.statusBar,"Run time $(t)s")
+    push!(c.main_window.statusBar,"console","Run time $(t)s")
 
     return Cint(false)
 end
@@ -234,7 +237,7 @@ end
 function command(c::Console)
     its = GtkTextIter(c.buffer,c.prompt_position)
     ite = GtkTextIter(c.buffer,length(c.buffer)+1)
-    cmd = text_iter_get_text(its,ite)
+    cmd = (its:ite).text[String]
     return cmd
 end
 function command(c::Console,str::AbstractString,offset::Integer)
@@ -574,7 +577,7 @@ function autocomplete(c::Console,cmd::AbstractString,pos::Integer)
         comp,dotpos = completions_in_module(cmd,c)
     end
     if ctx == :file
-        (comp,dotpos) = remotecall_fetch(Base.REPL.shell_completions,worker(c),cmd, lastindex(cmd))
+        (comp,dotpos) = remotecall_fetch(REPL.shell_completions,worker(c),cmd, lastindex(cmd))
         comp = REPL.completion_text.(comp)
     end
 
@@ -616,7 +619,7 @@ function update_completions(c::Console,comp,dotpos,cmd,lastpart)
         end
 
         write_before_prompt(c,out)
-        out = prefix * Base.LineEdit.common_prefix(comp)
+        out = prefix * REPL.LineEdit.common_prefix(comp)
     else
         out = prefix * comp[1]
     end
@@ -652,8 +655,8 @@ end
 "Run from the main Gtk loop, and print to console
 the content of stdout_buffer"
 function print_to_console(user_data)
-
-    console = unsafe_pointer_to_objref(user_data)
+    
+    console = user_data
 
     s = String(take!(console.stdout_buffer))
     if !isempty(s)

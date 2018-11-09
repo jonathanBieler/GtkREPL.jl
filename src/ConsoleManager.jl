@@ -88,7 +88,12 @@ end
 
 function console_mng_switch_page_cb(widgetptr::Ptr, pageptr::Ptr, pagenum::Int32, user_data)
 
-#    page = convert(Gtk.GtkWidget, pageptr)
+    cm = convert(GtkNotebook, widgetptr)
+    c  = convert(Gtk.GtkWidget, pageptr)
+
+    on_console_mng_switch_page(cm,c)
+
+    #@show (c,cm)
 #    if typeof(page) == Console
 #        console = page
 #    end

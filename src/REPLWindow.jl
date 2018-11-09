@@ -29,7 +29,7 @@ function init!(w::REPLWindow,console_mng,c)
     main_window.console_manager = console_mng
     main_window.statusBar = GtkStatusbar()
     set_gtk_property!(main_window.statusBar,:margin,2)
-    GtkExtensions.text(main_window.statusBar,"Julia $VERSION")
+    push!(main_window.statusBar,"main","Julia $VERSION")
 
     main_window |> 
         ((mainVbox = GtkBox(:v)) |>
@@ -39,7 +39,10 @@ function init!(w::REPLWindow,console_mng,c)
 end
 
 console_manager(main_window::T) where T<:GtkWindow = main_window.console_manager
-on_command_done(main_window::T) where T<:GtkWindow = nothing #entry point for external process
+
+# hooks for external process
+on_command_done(main_window::T, console) where T<:GtkWindow = nothing 
+on_console_mng_switch_page(cm,c) = nothing
 
 @guarded (PROPAGATE) function main_window_key_press_cb(widgetptr::Ptr, eventptr::Ptr, user_data)
     event = convert(Gtk.GdkEvent, eventptr)
