@@ -30,6 +30,11 @@ module GtkREPL
     include("REPLMode.jl")
     include("Console.jl")
     include("ConsoleCommands.jl")
+    
+    if !isfile(joinpath(HOMEDIR,"../config","user_settings.jl"))
+        cp(joinpath(HOMEDIR,"../config","default_settings.jl"),joinpath(HOMEDIR,"../config","user_settings.jl"))
+    end
+    include(joinpath("../config","user_settings.jl"))
 
     function reload()
         eval(GtkREPL, quote
@@ -40,6 +45,7 @@ module GtkREPL
         include(joinpath(HOMEDIR,"REPLMode.jl"))
         include(joinpath(HOMEDIR,"Console.jl"))
         include(joinpath(HOMEDIR,"ConsoleCommands.jl"))
+        include(joinpath(HOMEDIR,"../config","user_settings.jl"))
         end)
     end
 

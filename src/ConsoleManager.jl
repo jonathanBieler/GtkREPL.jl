@@ -37,8 +37,8 @@ function add_remote_console(main_window, mod=GtkREPL)
     port = console_manager(main_window).port
     id = length(console_manager(main_window)) + 1
     p = joinpath(HOMEDIR,"remote_console_startup.jl")
-    juliapath = ENV["_"] #what kind of variable name is this ?
-    s = "tell application \"Terminal\" to do script \"$juliapath -i --color=no \\\"$p\\\" $port $id $mod\""
+    julia_path = Config.julia_path
+    s = "tell application \"Terminal\" to do script \"$(julia_path) -i --color=no \\\"$p\\\" $port $id $mod\""
     run(`osascript -e $s`)
 end
 
