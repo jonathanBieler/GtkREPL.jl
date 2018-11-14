@@ -4,17 +4,18 @@ mutable struct ConsoleManager <: GtkNotebook
     main_window
     server::TCPServer
     port::UInt16
+    top_module::Module
     watch_stdout_task::Task
     stdout
     stderr
 
-    function ConsoleManager(main_window)
+    function ConsoleManager(main_window, top_module=GtkREPL)
 
         ntb = GtkNotebook()
         set_gtk_property!(ntb,:vexpand,true)
         port, server = RemoteGtkREPL.start_server()
 
-        n = new(ntb.handle, main_window, server, port)
+        n = new(ntb.handle, main_window, server, port, top_module)
         Gtk.gobject_move_ref(n, ntb)
     end
 end

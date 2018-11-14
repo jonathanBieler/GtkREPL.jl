@@ -32,7 +32,7 @@ module GtkREPL
     include("ConsoleCommands.jl")
     
     if !isfile(joinpath(HOMEDIR,"../config","user_settings.jl"))
-        cp(joinpath(HOMEDIR,"../config","default_settings.jl"),joinpath(HOMEDIR,"../config","user_settings.jl"))
+        cp(joinpath(HOMEDIR,"../config","default_settings.jl"), joinpath(HOMEDIR,"../config","user_settings.jl"))
     end
     include(joinpath("../config","user_settings.jl"))
 

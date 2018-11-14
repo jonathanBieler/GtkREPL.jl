@@ -698,9 +698,9 @@ end
     nothing
 end
 @guarded (nothing) function add_console_cb(btn::Ptr, user_data)
-    ntbook, tab, main_window = user_data
+    console_manager, tab, main_window = user_data
     #add_console(main_window)
-    add_remote_console(main_window,GtkREPL)
+    add_remote_console(main_window,console_manager.top_module)
     nothing
 end
 @guarded (nothing) function remove_console_cb(btn::Ptr, user_data)
