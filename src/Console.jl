@@ -473,7 +473,7 @@ function _callback_only_for_return(widgetptr::Ptr, eventptr::Ptr, user_data)
     end
     return Cint(false)
 end
-cfunction(_callback_only_for_return, Cint, (Ptr{Console},Ptr{Gtk.GdkEvent},Console))
+#@cfunction(_callback_only_for_return, Cint, (Ptr{Console},Ptr{Gtk.GdkEvent},Console))
 
 ## MOUSE CLICKS
 
@@ -587,7 +587,7 @@ end
 function completions_in_module(cmd,c::Console)
     prefix = string(c.eval_in,".")
     comp,dotpos = remotecall_fetch(completions, worker(c), prefix * cmd, lastindex(prefix * cmd))
-    dotpos -= lastindex(prefix)
+    dotpos =  (dotpos.start-lastindex(prefix)):(dotpos.stop-lastindex(prefix))
     comp = REPL.completion_text.(comp)
     comp,dotpos
 end
@@ -708,7 +708,7 @@ end
     idx = index(ntbook,tab)
     if idx != 1#can't close the main console
         c = ntbook[idx]
-        remotecall_fetch(info,worker(c),"Goodbye.")
+        remotecall_fetch(println,worker(c),"Goodbye.")
         splice!(ntbook,idx)
         set_current_page_idx(ntbook,max(idx-1,0))
         #rmprocs(tab.worker_idx) # FIXME

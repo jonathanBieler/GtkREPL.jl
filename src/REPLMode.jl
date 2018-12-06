@@ -20,6 +20,16 @@ switch_key(mode::HelpMode) = Action(0x03f, GdkModifierType.SHIFT, "")
 #FIXME add these to Gtk.GdkKeySyms https://gitlab.gnome.org/GNOME/gtk/blob/master/gdk/gdkkeysyms.h
 
 on_return(c,mode::REPLMode,cmd::AbstractString) = nothing
-on_return(c,mode::NormalMode,cmd::AbstractString) = remotecall_fetch(RemoteGtkREPL.eval_command_remotely,worker(c),cmd,string(c.eval_in))
 on_return(c,mode::HelpMode,cmd::AbstractString) = remotecall_fetch(RemoteGtkREPL.eval_command_remotely,worker(c),"@doc $cmd",string(c.eval_in))
 on_return(c,mode::ShellMode,cmd::AbstractString) = remotecall_fetch(RemoteGtkREPL.eval_shell_remotely,worker(c),cmd,string(c.eval_in))
+
+function on_return(c,mode::NormalMode,cmd::AbstractString) 
+
+    #use include_string instead (doesn't change anything)
+    #rcmd = """
+    #    RemoteGtkREPL.eval_command_remotely("$cmd", "$(c.eval_in)")
+    #"""
+    #remotecall_fetch(include_string, worker(c), Main, rcmd)
+
+    remotecall_fetch(RemoteGtkREPL.eval_command_remotely,worker(c),cmd,string(c.eval_in))
+end

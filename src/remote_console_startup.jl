@@ -38,8 +38,8 @@ end
 #gadfly()
 
 # finally register ourself to gtkrepl
-RemoteGtkREPL.remotecall_fetch(include_string, GtkREPLWorker.gtkrepl,"
-    eval($(GtkREPLWorker.remote_mod),:(
+RemoteGtkREPL.remotecall_fetch(include_string, GtkREPLWorker.gtkrepl, Main,"
+    Core.eval($(GtkREPLWorker.remote_mod),:(
         add_remote_console_cb($(GtkREPLWorker.id), $(GtkREPLWorker.port))
     ))
 ")
@@ -49,8 +49,8 @@ if true
         isinteractive() && sleep(0.1)
         if !@isdefined watch_stdio_task
 
-            global const stdout = STDOUT
-            global const stderr = STDERR
+            const stdout = STDOUT
+            const stderr = STDERR
 
             read_stdout, wr = redirect_stdout()
             watch_stdio_task = @async RemoteGtkREPL.watch_stream(read_stdout, GtkREPLWorker.gtkrepl, GtkREPLWorker.id, GtkREPLWorker.remote_mod)
