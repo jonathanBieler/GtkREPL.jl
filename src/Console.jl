@@ -473,7 +473,6 @@ function _callback_only_for_return(widgetptr::Ptr, eventptr::Ptr, user_data)
     end
     return Cint(false)
 end
-cfunction(_callback_only_for_return, Cint, (Ptr{Console},Ptr{Gtk.GdkEvent},Console))
 
 ## MOUSE CLICKS
 
