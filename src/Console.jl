@@ -586,7 +586,7 @@ end
 function completions_in_module(cmd,c::Console)
     prefix = string(c.eval_in,".")
     comp,dotpos = remotecall_fetch(completions, worker(c), prefix * cmd, lastindex(prefix * cmd))
-    dotpos -= lastindex(prefix)
+    dotpos = dotpos .- lastindex(prefix)
     comp = REPL.completion_text.(comp)
     comp,dotpos
 end

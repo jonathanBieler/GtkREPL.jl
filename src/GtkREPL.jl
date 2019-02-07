@@ -37,7 +37,7 @@ module GtkREPL
     include(joinpath("../config","user_settings.jl"))
 
     function reload()
-        eval(GtkREPL, quote
+        Core.eval(GtkREPL, quote
         include(joinpath(HOMEDIR,"Actions.jl"))
         include(joinpath(HOMEDIR,"REPLWindow.jl"))
         include(joinpath(HOMEDIR,"CommandHistory.jl"))
