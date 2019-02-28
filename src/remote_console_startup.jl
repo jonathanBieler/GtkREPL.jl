@@ -1,5 +1,5 @@
 # put important things in a module for safety
-using RemoteGtkREPL
+using RemoteGtkREPL, Pkg
 module GtkREPLWorker
 
     using RemoteGtkREPL

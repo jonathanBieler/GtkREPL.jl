@@ -4,13 +4,13 @@ module GtkREPL
     using GtkExtensions
     using JuliaWordsUtils
     using GtkTextUtils
-    using Sockets, Distributed, Printf, REPL
+    using Sockets, Distributed, Printf, REPL, Pkg
     
     import Gtk: GtkTextIter, get_default_mod_mask
     import REPL.REPLCompletions.completions
     import Sockets: TCPServer
 
-    export repl, RemoteGtkREPL
+    export repl, RemoteGtkREPL, Pkg
 
     global const HOMEDIR = @__DIR__
     global const PROPAGATE = convert(Cint,false)

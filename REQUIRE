@@ -1,2 +1,11 @@
 julia 0.7
+Gtk
 RemoteGtkREPL
+GtkExtensions
+JuliaWordsUtils
+GtkTextUtils
+Sockets
+Distributed
+Printf
+REPL
+Pkg
