@@ -1,7 +1,0 @@
-name = "GtkREPL"
-uuid = "eff58d64-a610-11e8-3dc4-d9ca4bacf7cd"
-authors = ["Jonathan Bieler <jonathan.bieler@alumni.epfl.ch>"]
-version = "0.1.0"
-
-[deps]
-Gtk = "4c0ca9eb-093a-5379-98c5-f87ac0bbbf44"
