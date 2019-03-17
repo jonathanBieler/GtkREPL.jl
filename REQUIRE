@@ -1,12 +1,7 @@
 julia 0.7
 Gtk
 Gadfly
-RemoteGtkREPL
 GtkExtensions
+RemoteGtkREPL
 JuliaWordsUtils
 GtkTextUtils
-Sockets
-Distributed
-Printf
-REPL
-Pkg
