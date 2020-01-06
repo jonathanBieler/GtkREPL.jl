@@ -56,7 +56,7 @@ Base.pwd(c::Console) = remotecall_fetch(pwd, worker(c))
 import Base.write
 function write(c::Console,str::AbstractString)
     insert!(c.buffer,end_iter(c.buffer),str)
-    text_buffer_place_cursor(c.buffer,end_iter(c.buffer))
+    place_cursor(c.buffer,end_iter(c.buffer))
 end
 
 function switch_mode(c::Console,mode::REPLMode)
@@ -103,7 +103,7 @@ end
 function new_prompt(c::Console)
     insert!(c.buffer,end_iter(c.buffer),"\n$(prompt(c))")
     c.prompt_position = length(c.buffer)+1
-    text_buffer_place_cursor(c.buffer,end_iter(c.buffer))
+    place_cursor(c.buffer,end_iter(c.buffer))
 end
 
 function clear(c::Console)
@@ -154,7 +154,7 @@ function on_return(c::Console,cmd::AbstractString)
     c.run_task_start_time = time()
     push!(c.main_window.statusBar,"console","Busy")
 
-    g_timeout_add(50,write_output_to_console,(c,found))
+    g_timeout_add(()->write_output_to_console(c,found), 50)
     nothing
 end
 
@@ -172,9 +172,7 @@ isdone(c::Console) = remotecall_fetch(RemoteGtkREPL.isdone,worker(c))
 
 "Wait for the running task to end and print the result in the console.
 Run from Gtk main loop."
-function write_output_to_console(user_data)
-
-    c, is_console_command = user_data
+function write_output_to_console(c, is_console_command)
 
     if is_console_command
         t = c.run_task
@@ -245,17 +243,17 @@ function command(c::Console,str::AbstractString,offset::Integer)
     its = GtkTextIter(c.buffer,c.prompt_position)
     ite = GtkTextIter(c.buffer,length(c.buffer)+1)
     replace_text(c.buffer,its,ite, str)
-    if offset >= 0 && c.prompt_position+offset-1 <= length(c.buffer)
-        text_buffer_place_cursor(c.buffer,c.prompt_position+offset-1)
+    if offset >= 0 && c.prompt_position+offset <= length(c.buffer)
+        place_cursor(c.buffer,c.prompt_position+offset)
     end
 end
 command(c::Console,str::AbstractString) = command(c,str,-1)
 
 function move_cursor_to_end(c::Console)
-    text_buffer_place_cursor(c.buffer,end_iter(c.buffer))
+    place_cursor(c.buffer,end_iter(c.buffer))
 end
 function move_cursor_to_prompt(c::Console)
-    text_buffer_place_cursor(c.buffer,c.prompt_position-1)
+    place_cursor(c.buffer, c.prompt_position)
 end
 
 "return cursor position in the prompt text"
@@ -266,7 +264,7 @@ function cursor_position(c::Console)
 end
 cursor_position(b::GtkTextBuffer) = get_gtk_property(b,:cursor_position,Int)
 
-function select_on_ctrl_shift(direction,c::Console)
+function select_on_ctrl_shift(direction, c::Console)
 
     buffer = c.buffer
     (found,its,ite) = selection_bounds(buffer)
@@ -281,7 +279,7 @@ function select_on_ctrl_shift(direction,c::Console)
     direction == :end && move_cursor_to_sentence_end(buffer)
 
     ite = get_text_iter_at_cursor(buffer)
-    selection_bounds(buffer,ite,its)#invert here so the cursor end up on the far right
+    select_range(buffer,ite,its)#invert here so the cursor end up on the far right
 end
 
 ##
@@ -333,7 +331,7 @@ end
         end
     end
 
-    if length(cmd) == 0
+    if pos == 0#the cursor is at the prompt
         check_switch_mode(console,event) && return INTERRUPT
     end
 
@@ -392,14 +390,14 @@ end
 
     if event.keyval == Gtk.GdkKeySyms.Up
         if found
-            if !before_prompt(console,offset(it_start))
-                selection_bounds(buffer,GtkTextIter(buffer,console.prompt_position),nonmutable(buffer,it_end))
+            if !before_prompt(console, offset(it_start))
+                select_range(buffer, GtkTextIter(buffer,console.prompt_position), nonmutable(buffer,it_end))
                 return INTERRUPT
             end
             return PROPAGATE
         end
-        !history_up(console.history,prefix,cmd) && return convert(Cint,true)
-        command(console,history_get_current(console.history),length(prefix))
+        !history_up(console.history, prefix, cmd) && return convert(Cint,true)
+        command(console, history_get_current(console.history), length(prefix))
         return INTERRUPT
     end
 
@@ -420,7 +418,7 @@ end
         before_prompt(console) && return PROPAGATE
         #select only prompt
         its,ite = iters_at_console_prompt(console)
-        selection_bounds(buffer,its,ite)
+        select_range(buffer,its,ite)
         return INTERRUPT
     end
     if doing(Actions["interrupt_run"],event)
@@ -452,7 +450,7 @@ and we are trying to copy or cut.
 function auto_select_prompt(found, console, buffer)
     if !found && !before_prompt(console)
         its,ite = iters_at_console_prompt(console)
-        selection_bounds(buffer,its,ite)
+        select_range(buffer,its,ite)
     end
 end
 
@@ -648,15 +646,13 @@ function init!(c::Console)
     show(c)
     push!(console_manager(c),c)
     set_tab_label_text(console_manager(c),c,"C" * string(length(console_manager(c))))
-    g_timeout_add(100,print_to_console,c)
+    g_timeout_add(()->print_to_console(c),100)
 end
 
 "Run from the main Gtk loop, and print to console
 the content of stdout_buffer"
-function print_to_console(user_data)
+function print_to_console(console)
     
-    console = user_data
-
     s = String(take!(console.stdout_buffer))
     if !isempty(s)
         s = translate_colors(s)
@@ -707,7 +703,7 @@ end
     idx = index(ntbook,tab)
     if idx != 1#can't close the main console
         c = ntbook[idx]
-        remotecall_fetch(info,worker(c),"Goodbye.")
+#        remotecall_fetch(info,worker(c),"Goodbye.")
         splice!(ntbook,idx)
         set_current_page_idx(ntbook,max(idx-1,0))
         #rmprocs(tab.worker_idx) # FIXME

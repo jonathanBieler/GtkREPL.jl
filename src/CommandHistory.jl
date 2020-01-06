@@ -1,21 +1,21 @@
 import Base.push!
 
 mutable struct HistoryProvider
-    history::Array{AbstractString,1}
-    filename::AbstractString
+    history::Array{String,1}
+    filename::String
     cur_idx::Int
     search_results::Array{Int,1}
-    prefix::AbstractString
+    prefix::String
     idx_search::Int
     worker_idx::Int
 
-    HistoryProvider(w_idx::Int) = new(AbstractString[""],nothing,0,0,[],"",1,widx)
-    HistoryProvider(h::Array{AbstractString,1},hf,cidx::Int,w_idx::Int) = new(h,hf,cidx,[],"",1,w_idx)
+    HistoryProvider(w_idx::Int) = new(String[""],nothing,0,0,[],"",1,widx)
+    HistoryProvider(h::Array{String,1},hf,cidx::Int,w_idx::Int) = new(h,hf,cidx,[],"",1,w_idx)
 end
 
 function setup_history(w_idx::Int)
     #load history, etc
-    h = HistoryProvider(AbstractString["x = pi"],
+    h = HistoryProvider(String["x = pi"],
         joinpath(HOMEDIR,"..","config","history_" * string(w_idx)), 1, w_idx)
 
     if isfile(h.filename)
@@ -27,9 +27,10 @@ function setup_history(w_idx::Int)
     end
     return h
 end
-function setup_history(name::AbstractString)
+
+function setup_history(name)
     #load history, etc
-    h = HistoryProvider(AbstractString[""], joinpath(HOMEDIR,"..","config","history_" * name), 1, 1)
+    h = HistoryProvider(String[""], joinpath(HOMEDIR,"..","config","history_" * name), 1, 1)
 
     if isfile(h.filename)
         h.history = parse_history(h)
@@ -40,7 +41,8 @@ function setup_history(name::AbstractString)
     end
     return h
 end
-function push!(h::HistoryProvider, str::AbstractString)
+
+function push!(h::HistoryProvider, str)
     isempty(strip(str)) && return
     push!(h.history, str)
 
@@ -76,7 +78,7 @@ function parse_history(h::HistoryProvider)
     return out
 end
 
-function search(h::HistoryProvider,prefix::AbstractString)
+function search(h::HistoryProvider, prefix)
 
     idx = Array{Int}(undef, 0)
     for i = length(h.history):-1:1
@@ -88,7 +90,7 @@ function search(h::HistoryProvider,prefix::AbstractString)
     return idx
 end
 
-function history_up(h::HistoryProvider,prefix::AbstractString,cmd::AbstractString)
+function history_up(h::HistoryProvider, prefix, cmd)
 
     if length(prefix) > 0
 
@@ -112,7 +114,7 @@ function history_up(h::HistoryProvider,prefix::AbstractString,cmd::AbstractStrin
     return true
 end
 
-function history_down(h::HistoryProvider,prefix::AbstractString,cmd::AbstractString)
+function history_down(h::HistoryProvider, prefix, cmd)
 
         if length(prefix) > 0
             h.idx_search = h.idx_search-1
@@ -127,10 +129,12 @@ function history_down(h::HistoryProvider,prefix::AbstractString,cmd::AbstractStr
 end
 
 ##
-function history_move(h::HistoryProvider,m::Int)
+function history_move(h::HistoryProvider, m::Int)
     h.cur_idx = clamp(h.cur_idx+m,1,length(h.history)+1) #+1 is the empty state when we are at the end of history and press down
 end
+
 history_get_current(h::HistoryProvider) = h.cur_idx == length(h.history)+1 ? "" : h.history[h.cur_idx]
+
 function seek_end(h::HistoryProvider)
     h.cur_idx = length(h.history)+1
 end
