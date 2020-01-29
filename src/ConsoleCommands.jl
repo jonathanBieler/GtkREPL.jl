@@ -127,7 +127,7 @@ add_console_command(r"^evalin (.*)",(m,c) -> begin
         v = m.captures[1]
         v == "?" && return string(c.eval_in) * "\n"
 
-        m = Core.eval(Main,Meta.parse(v))
+        m = Core.eval(Main, Meta.parse(v))
         typeof(m) != Module && error("evalin : $v is not a module")
         c.eval_in = m
 	catch err
@@ -157,10 +157,30 @@ function console_commands_context(cmd::AbstractString)
     end
     return (:normal,nothing)
 end
-function check_console_commands(cmd::AbstractString,c::Console)
+
+function interpolate_console_command(cmd, c)
+
+    !occursin('$',cmd) && return true, cmd
+
+    s = string('"', cmd, '"')
+    s = Base.parse_input_line(s)
+    out = try
+        remotecall_fetch(Core.eval, worker(c), Main, s)
+    catch err
+        @warn err
+        return false, cmd
+    end
+    return true, out
+end
+
+function check_console_commands(cmd::AbstractString, c::Console)
     for co in console_commands
-        m = match(co.r,cmd)
+        m = match(co.r, cmd)
         if m != nothing
+            success, i_cmd = interpolate_console_command(cmd, c)# need to be run only when we have a match
+            !success && continue
+            m = match(co.r, i_cmd)
+            m == nothing && continue
             return (true, @async begin co.f(m,c) end)
         end
     end

@@ -154,7 +154,7 @@ function on_return(c::Console,cmd::AbstractString)
     c.run_task_start_time = time()
     push!(c.main_window.statusBar,"console","Busy")
 
-    g_timeout_add(()->write_output_to_console(c,found), 50)
+    g_timeout_add(() -> write_output_to_console(c,found), 50)
     nothing
 end
 
