@@ -17,112 +17,112 @@ mutable struct ConsoleCommand
 end
 
 global const console_commands = Array{ConsoleCommand}(undef, 0)
-add_console_command(r::Regex,f::Function) = push!(console_commands,ConsoleCommand(r,f,:normal))
-add_console_command(r::Regex,f::Function,c::Symbol) = push!(console_commands,ConsoleCommand(r,f,c))
+add_console_command(r::Regex, f::Function) = push!(console_commands, ConsoleCommand(r, f, :normal))
+add_console_command(r::Regex, f::Function, c::Symbol) = push!(console_commands, ConsoleCommand(r, f, c))
 
 #first try to match line number
-#add_console_command(r"^edit (.*):(\d+)",(m,c) -> begin
+#add_console_command(r"^edit (.*):(\d+)", (m, c) -> begin
 #    try
-#        line = parse(Int,m.captures[2])
+#        line = parse(Int, m.captures[2])
 #        q = "\""
-#        remotecall_fetch(include_string,worker(c),"eval(GtkIDE,:(
-#            open_in_new_tab($(q)$(m.captures[1])$(q),line=$(line))
+#        remotecall_fetch(include_string, worker(c), "eval(GtkIDE, :(
+#            open_in_new_tab($(q)$(m.captures[1])$(q), line=$(line))
 #        ))")
 #    catch
 #        println("Invalid line number: $(m.captures[2])")
 #    end
 #    nothing
-#end,:file)
-#add_console_command(r"^edit (.*)",(m,c) -> begin
+#end, :file)
+#add_console_command(r"^edit (.*)", (m, c) -> begin
 #    q = "\""
-#    remotecall_fetch(include_string,worker(c),"eval(GtkIDE,:(
+#    remotecall_fetch(include_string, worker(c), "eval(GtkIDE, :(
 #        open_in_new_tab($(q)$(m.captures[1])$(q))
 #    ))")
 #    nothing
-#end,:file)
+#end, :file)
 
-add_console_command(r"^clc$",(m,c) -> begin
+add_console_command(r"^clc$", (m, c) -> begin
     clear(c)
     nothing
 end)
-add_console_command(r"^pwd$",(m,c) -> begin
+add_console_command(r"^pwd$", (m, c) -> begin
     return pwd(c) * "\n"
 end)
-add_console_command(r"^ls\s+(.*)",(m,c) -> begin
+add_console_command(r"^ls\s+(.*)", (m, c) -> begin
     try
-        f(args...) = remotecall_fetch(readdir,worker(c),args...)
+        f(args...) = remotecall_fetch(readdir, worker(c), args...)
         files = m.captures[1] == "" ? f() : f(m.captures[1])
         s = ""
         for f in files
-            s = string(s,f,"\n")
+            s = string(s, f, "\n")
         end
         return s
 	catch err
-		return sprint(show,err) * "\n"
+		return sprint(show, err) * "\n"
 	end
-end,:file)
-add_console_command(r"^ls$",(m,c) -> begin
+end, :file)
+add_console_command(r"^ls$", (m, c) -> begin
 	try
-        files = remotecall_fetch(readdir,worker(c))
+        files = remotecall_fetch(readdir, worker(c))
         s = ""
         for f in files
-            s = string(s,f,"\n")
+            s = string(s, f, "\n")
         end
         return s
 	catch err
-		return sprint(show,err) * "\n"
+		return sprint(show, err) * "\n"
 	end
-end,:file)
+end, :file)
 
-add_console_command(r"^cd (.*)",(m,c) -> begin
+add_console_command(r"^cd (.*)", (m, c) -> begin
 	try
         v = m.captures[1]
-	    if !remotecall_fetch(isdir,worker(c),v)
+	    if !remotecall_fetch(isdir, worker(c), v)
             return "cd: $v: No such file or directory"
         end
-        remotecall_fetch(cd,worker(c),v)
+        remotecall_fetch(cd, worker(c), v)
 	    
 		return pwd(c) * "\n"
 	catch err
-		return sprint(show,err) * "\n"
+		return sprint(show, err) * "\n"
 	end
-end,:file)
-add_console_command(r"^\?\s*(.*)",(m,c) -> begin
+end, :file)
+add_console_command(r"^\?\s*(.*)", (m, c) -> begin
     try
         h = Symbol(m.captures[1])#TODO: run this on worker
         h = Base.doc(Base.Docs.Binding(
-            Base.Docs.current_module(),h)
+            Base.Docs.current_module(), h)
         )
         h = Markdown.plain(h)
         return h
     catch err
-        return sprint(show,err) * "\n"
+        return sprint(show, err) * "\n"
     end
 end)
-add_console_command(r"^open (.*)",(m,c) -> begin
+add_console_command(r"^open (.*)", (m, c) -> begin
 	try
         v = m.captures[1]
         if Sys.iswindows()
-            remotecall_fetch(run,worker(c),`cmd /c start "$v" `)
+            remotecall_fetch(run, worker(c), `cmd /c start "$v" `)
         end
         if Sys.isapple()
-            remotecall_fetch(run,worker(c),`open $v`)
+            remotecall_fetch(run, worker(c), `open $v`)
         end
         return "\n"
 	catch err
-		return sprint(show,err) * "\n"
+		return sprint(show, err) * "\n"
     end
-end,:file)
-add_console_command(r"^mkdir (.*)",(m,c) -> begin
+end, :file)
+add_console_command(r"^mkdir (.*)", (m, c) -> begin
 	try
         v = m.captures[1]
-        remotecall_fetch(mkdir,worker(c),v)
+        remotecall_fetch(mkdir, worker(c), v)
 	catch err
-		return sprint(show,err) * "\n"
+		return sprint(show, err) * "\n"
 	end
-end,:file)
+end, :file)
 
-add_console_command(r"^evalin (.*)",(m,c) -> begin
+add_console_command(r"^evalin (.*)", (m, c) -> begin
 	try
         v = m.captures[1]
         v == "?" && return string(c.eval_in) * "\n"
@@ -131,18 +131,18 @@ add_console_command(r"^evalin (.*)",(m,c) -> begin
         typeof(m) != Module && error("evalin : $v is not a module")
         c.eval_in = m
 	catch err
-		return sprint(show,err) * "\n"
+		return sprint(show, err) * "\n"
 	end
 	nothing
 end)
 
-add_console_command(r"^morespace",(m,c) -> begin
+add_console_command(r"^morespace", (m, c) -> begin
 	try
         main_window = c.main_window
-        visible(main_window.menubar,!visible(main_window.menubar))
-        visible(main_window.editor.sourcemap,!visible(main_window.editor.sourcemap))
+        visible(main_window.menubar, !visible(main_window.menubar))
+        visible(main_window.editor.sourcemap, !visible(main_window.editor.sourcemap))
 	catch err
-		return sprint(show,err) * "\n"
+		return sprint(show, err) * "\n"
 	end
 	nothing
 end)
@@ -150,17 +150,17 @@ end)
 ##
 function console_commands_context(cmd::AbstractString)
     for c in console_commands
-        m = match(c.r,cmd)
+        m = match(c.r, cmd)
         if m != nothing
-            return (c.completion_context,m)
+            return (c.completion_context, m)
         end
     end
-    return (:normal,nothing)
+    return (:normal, nothing)
 end
 
 function interpolate_console_command(cmd, c)
 
-    !occursin('$',cmd) && return true, cmd
+    !occursin('$', cmd) && return true, cmd
 
     s = string('"', cmd, '"')
     s = Base.parse_input_line(s)
@@ -181,7 +181,7 @@ function check_console_commands(cmd::AbstractString, c::Console)
             !success && continue
             m = match(co.r, i_cmd)
             m == nothing && continue
-            return (true, @async begin co.f(m,c) end)
+            return (true, @async begin co.f(m, c) end)
         end
     end
     return (false, nothing)

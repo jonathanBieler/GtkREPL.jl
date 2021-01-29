@@ -1,28 +1,28 @@
 import Base.push!
 
 mutable struct HistoryProvider
-    history::Array{String,1}
+    history::Array{String, 1}
     filename::String
     cur_idx::Int
-    search_results::Array{Int,1}
+    search_results::Array{Int, 1}
     prefix::String
     idx_search::Int
     worker_idx::Int
 
-    HistoryProvider(w_idx::Int) = new(String[""],nothing,0,0,[],"",1,widx)
-    HistoryProvider(h::Array{String,1},hf,cidx::Int,w_idx::Int) = new(h,hf,cidx,[],"",1,w_idx)
+    HistoryProvider(w_idx::Int) = new(String[""], nothing, 0, 0, [], "", 1, widx)
+    HistoryProvider(h::Array{String, 1}, hf, cidx::Int, w_idx::Int) = new(h, hf, cidx, [], "", 1, w_idx)
 end
 
 function setup_history(w_idx::Int)
     #load history, etc
     h = HistoryProvider(String["x = pi"],
-        joinpath(HOMEDIR,"..","config","history_" * string(w_idx)), 1, w_idx)
+        joinpath(HOMEDIR, "..", "config", "history_" * string(w_idx)), 1, w_idx)
 
     if isfile(h.filename)
         h.history = parse_history(h)
         h.cur_idx = length(h.history)+1
     else
-        f = open(h.filename,"w")
+        f = open(h.filename, "w")
         close(f)
     end
     return h
@@ -30,13 +30,13 @@ end
 
 function setup_history(name)
     #load history, etc
-    h = HistoryProvider(String[""], joinpath(HOMEDIR,"..","config","history_" * name), 1, 1)
+    h = HistoryProvider(String[""], joinpath(HOMEDIR, "..", "config", "history_" * name), 1, 1)
 
     if isfile(h.filename)
         h.history = parse_history(h)
         h.cur_idx = length(h.history)+1
     else
-        f = open(h.filename,"w")
+        f = open(h.filename, "w")
         close(f)
     end
     return h
@@ -47,34 +47,34 @@ function push!(h::HistoryProvider, str)
     push!(h.history, str)
 
     if isfile(h.filename)
-        f = open(h.filename,"a")
+        f = open(h.filename, "a")
         str = "
 # _history_entry_
 $str"
         write(f, str)
         close(f)
     else
-        write(console,"unable to open history file " * h.filename)
+        write(console, "unable to open history file " * h.filename)
     end
 end
 ## use JSON ?
 function parse_history(h::HistoryProvider)
 
-    f = open(h.filename,"r")
+    f = open(h.filename, "r")
     lines = readlines(f)
     close(f)
 
     out = Array{String}(undef, 0)
     current_command = ""
     for line in lines
-        if match(r"^# _history_entry_",line) != nothing
-            current_command != "" && push!(out,current_command)
+        if match(r"^# _history_entry_", line) != nothing
+            current_command != "" && push!(out, current_command)
             current_command = ""
         else
-            current_command = string(current_command,line)
+            current_command = string(current_command, line)
         end
     end
-    current_command != "" && push!(out,current_command)
+    current_command != "" && push!(out, current_command)
     return out
 end
 
@@ -82,7 +82,7 @@ function search(h::HistoryProvider, prefix)
 
     idx = Array{Int}(undef, 0)
     for i = length(h.history):-1:1
-        startswith(h.history[i],prefix) && push!(idx,i)
+        startswith(h.history[i], prefix) && push!(idx, i)
     end
     h.search_results = idx
     h.prefix = prefix
@@ -96,7 +96,7 @@ function history_up(h::HistoryProvider, prefix, cmd)
 
         if prefix != h.prefix #new search
 
-            results = search(h,prefix)
+            results = search(h, prefix)
             isempty(results) && return false
 
             h.idx_search = 1
@@ -104,12 +104,12 @@ function history_up(h::HistoryProvider, prefix, cmd)
 
         else  #we already searched but want to see next result
 
-            h.idx_search = min(h.idx_search+1,length(h.search_results))
+            h.idx_search = min(h.idx_search+1, length(h.search_results))
             h.cur_idx =  length(h.search_results) > 0 ? h.search_results[h.idx_search] : h.cur_idx
         end
     else
         cmd == "" && seek_end(h) #we go back to the end of the list
-        history_move(h,-1)
+        history_move(h, -1)
     end
     return true
 end
@@ -124,13 +124,13 @@ function history_down(h::HistoryProvider, prefix, cmd)
             end
             h.cur_idx =  length(h.search_results) > 0 ? h.search_results[h.idx_search] : h.cur_idx
         else
-            history_move(h,+1)
+            history_move(h, +1)
         end
 end
 
 ##
 function history_move(h::HistoryProvider, m::Int)
-    h.cur_idx = clamp(h.cur_idx+m,1,length(h.history)+1) #+1 is the empty state when we are at the end of history and press down
+    h.cur_idx = clamp(h.cur_idx+m, 1, length(h.history)+1) #+1 is the empty state when we are at the end of history and press down
 end
 
 history_get_current(h::HistoryProvider) = h.cur_idx == length(h.history)+1 ? "" : h.history[h.cur_idx]

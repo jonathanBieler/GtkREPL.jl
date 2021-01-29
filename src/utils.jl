@@ -1,37 +1,23 @@
-function select_word(it::GtkTextIter,buffer::GtkTextBuffer,include_dot::Bool)#include_dot means we include "." in word boundary def
-
-    (txt, line_start, line_end) = get_line_text(buffer,it)
-
-    pos = offset(it) - offset(line_start) +1#not sure about the +1 but it feels better
-    if pos <= 0
-        return ("",GtkTextIter(buffer,offset(it)),
-        GtkTextIter(buffer,offset(it)))
-    end
-
-    word,i,j = extend_word(pos, txt, include_dot)
-
-    its = GtkTextIter(buffer, i + offset(line_start) )
-    ite = GtkTextIter(buffer, j + offset(line_start) + 1)
-
-    return (word,its,ite)
+function style_css(w::Gtk.GtkWidget, provider::GtkCssProvider)
+    sc = Gtk.G_.style_context(w)
+    push!(sc, provider, 600)
 end
-select_word(it::GtkTextIter,buffer::GtkTextBuffer) = select_word(it,buffer,true)
+style_css(w::Gtk.GtkWidget, css::String) = style_css(w, GtkCssProvider(data=css))
 
-function select_word_backward(it::GtkTextIter,buffer::GtkTextBuffer,include_dot::Bool)
+index(notebook::Gtk.GtkNotebook) = Gtk.GAccessor.current_page(notebook) + 1
+index(notebook::Gtk.GtkNotebook, i::Integer) = Gtk.GAccessor.current_page(notebook, i-1)
+index(notebook::Gtk.GtkNotebook, child::Gtk.GtkWidget) = pagenumber(notebook, child) + 1
 
-    (txt, line_start, line_end) = get_line_text(buffer,it)
-    pos = offset(it) - offset(line_start) #position of cursor in txt
+## TODO this could be in Gtk.jl
 
-    if pos <= 0 || length(txt) == 0
-        return ("",GtkTextIter(buffer,offset(it)),
-        GtkTextIter(buffer,offset(it)))
-    end
+nonmutable(buffer::GtkTextBuffer, it::Gtk.GLib.MutableTypes.Mutable{GtkTextIter}) =
+    GtkTextIter(buffer, char_offset(it))
 
-    txt = CharArray(txt,pos)
-    (i,j) = select_word_backward(pos,txt,include_dot)
+nonmutable(buffer::GtkTextBuffer, it::GtkTextIter) = it
 
-    its = GtkTextIter(buffer, i + offset(line_start) )
-    ite = GtkTextIter(buffer, offset(it))
+get_tab(notebook::Gtk.GtkNotebook, page_num::Int) = Gtk.GAccessor.nth_page(notebook, page_num-1)
 
-    return (txt[i:j],its,it)
-end
+#get_tab(notebook::Gtk.GtkNotebook, page_num::Int) = convert(Gtk.GtkWidget, ccall((:gtk_notebook_get_nth_page,Gtk.libgtk), Ptr{Gtk.GObject},
+#    (Ptr{Gtk.GObject}, Cint),notebook, page_num-1))
+    
+offset(it::Gtk.TI) = get_gtk_property(it, :offset, Integer)

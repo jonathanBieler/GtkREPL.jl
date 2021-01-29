@@ -1,20 +1,22 @@
 module GtkREPL
     using Gtk
     using RemoteGtkREPL
-    using GtkExtensions
+    #using GtkExtensions
     using JuliaWordsUtils
     using GtkTextUtils
     using Sockets, Distributed, Printf, REPL, Pkg
     
-    import Gtk: GtkTextIter, get_default_mod_mask
+    import Gtk: GtkTextIter, char_offset, get_default_mod_mask, GdkKeySyms
+    import Gtk.GAccessor.end_iter
     import REPL.REPLCompletions.completions
     import Sockets: TCPServer
 
     export repl, RemoteGtkREPL, Pkg
+    export MenuItem, buildmenu
 
     global const HOMEDIR = @__DIR__
-    global const PROPAGATE = convert(Cint,false)
-    global const INTERRUPT = convert(Cint,true)
+    global const PROPAGATE = convert(Cint, false)
+    global const INTERRUPT = convert(Cint, true)
 
     global const fontsize = 13
     
@@ -30,31 +32,27 @@ module GtkREPL
     include("REPLMode.jl")
     include("Console.jl")
     include("ConsoleCommands.jl")
+    include("MenuUtils.jl")
+    include("utils.jl")
     
-    if !isfile(joinpath(HOMEDIR,"../config","user_settings.jl"))
-        cp(joinpath(HOMEDIR,"../config","default_settings.jl"), joinpath(HOMEDIR,"../config","user_settings.jl"))
+    if !isfile(joinpath(HOMEDIR, "../config", "user_settings.jl"))
+        cp(joinpath(HOMEDIR, "../config", "default_settings.jl"), joinpath(HOMEDIR, "../config", "user_settings.jl"))
     end
-    include(joinpath("../config","user_settings.jl"))
+    include(joinpath("../config", "user_settings.jl"))
 
     function reload()
         Core.eval(GtkREPL, quote
-        include(joinpath(HOMEDIR,"Actions.jl"))
-        include(joinpath(HOMEDIR,"REPLWindow.jl"))
-        include(joinpath(HOMEDIR,"CommandHistory.jl"))
-        include(joinpath(HOMEDIR,"ConsoleManager.jl"))
-        include(joinpath(HOMEDIR,"REPLMode.jl"))
-        include(joinpath(HOMEDIR,"Console.jl"))
-        include(joinpath(HOMEDIR,"ConsoleCommands.jl"))
-        include(joinpath(HOMEDIR,"../config","user_settings.jl"))
+        include(joinpath(HOMEDIR, "Actions.jl"))
+        include(joinpath(HOMEDIR, "REPLWindow.jl"))
+        include(joinpath(HOMEDIR, "CommandHistory.jl"))
+        include(joinpath(HOMEDIR, "ConsoleManager.jl"))
+        include(joinpath(HOMEDIR, "REPLMode.jl"))
+        include(joinpath(HOMEDIR, "Console.jl"))
+        include(joinpath(HOMEDIR, "ConsoleCommands.jl"))
+        include(joinpath(HOMEDIR, "MenuUtils.jl"))
+        include(joinpath(HOMEDIR, "utils.jl"))
+        include(joinpath(HOMEDIR, "../config", "user_settings.jl"))
         end)
-    end
-
-    function gadfly()
-        @eval begin
-            import Gadfly
-            export Gadfly
-        end
-        RemoteGtkREPL.gadfly()
     end
 
     function send_stream(rd::IO)
@@ -64,7 +62,7 @@ module GtkREPL
             s = String(copy(d))
             if !isempty(s)
                 try 
-                    print_to_console_remote(s,1)
+                    print_to_console_remote(s, 1)
                 catch err
                     @warn err
                 end
@@ -79,12 +77,12 @@ module GtkREPL
         end
     end
 
-    function gtkrepl(T=GtkTextView,B=GtkTextBuffer)
+    function gtkrepl(T=GtkTextView, B=GtkTextBuffer)
         global main_window = REPLWindow()
         console_mng = ConsoleManager(main_window)
-        c = Console{T,B}(1, main_window, TCPSocket())
+        c = Console{T, B}(1, main_window, TCPSocket())
 
-        init!(main_window,console_mng,c)
+        init!(main_window, console_mng)
         init!(console_mng)
         init!(c)
         showall(main_window)

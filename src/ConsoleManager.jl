@@ -25,7 +25,7 @@ function init!(console_mng::ConsoleManager)
     # add a task in Gtk's main main that writes stdout buffer in the console
     signal_connect(console_mng_button_press_cb,console_mng, "button-press-event",
     Cint, (Ptr{Gtk.GdkEvent},),false,console_mng.main_window)
-    signal_connect(console_mng_switch_page_cb,console_mng,"switch-page", Nothing, (Ptr{Gtk.GtkWidget},Int32), false)
+    signal_connect(console_mng_switch_page_cb,console_mng, "switch-page", Nothing, (Ptr{Gtk.GtkWidget},Int32), false)
 end
 
 function init_stdout!(console_mng::ConsoleManager,watch_stdout_task,stdout,stderr)
@@ -44,7 +44,7 @@ function add_remote_console(main_window, mod=GtkREPL)
 end
 
 function add_remote_console_cb(id, port)
-    info("GtkREPL: Starting console for port $port with id $id")
+    @info "GtkREPL: Starting console for port $port with id $id"
 
     c = try
         worker = connect(port)
@@ -54,13 +54,12 @@ function add_remote_console_cb(id, port)
         init!(c)
 
         #for some reason I need to warm-up things here, otherwise it bugs later on.
-        isdone(c)
-        @assert remotecall_fetch(identity,GtkREPL.worker(c),1) == 1
+        @assert remotecall_fetch(identity, GtkREPL.worker(c),1) == 1
 
         showall(c.main_window)
         c
     catch err
-        warn(err)
+        @warn err
     end
 
     RemoteGtkREPL.remotecall_fetch(println, worker(c),"Worker connected")
