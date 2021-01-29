@@ -1,9 +1,10 @@
 module GtkREPL
     using Gtk
     using RemoteGtkREPL
-    #using GtkExtensions
-    using JuliaWordsUtils
-    using GtkTextUtils
+    include("JuliaWordsUtils.jl")
+    using .JuliaWordsUtils
+    include("GtkTextUtils.jl")
+    using .GtkTextUtils
     using Sockets, Distributed, Printf, REPL, Pkg
     
     import Gtk: GtkTextIter, char_offset, get_default_mod_mask, GdkKeySyms

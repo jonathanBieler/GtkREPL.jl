@@ -20,4 +20,4 @@ get_tab(notebook::Gtk.GtkNotebook, page_num::Int) = Gtk.GAccessor.nth_page(noteb
 #get_tab(notebook::Gtk.GtkNotebook, page_num::Int) = convert(Gtk.GtkWidget, ccall((:gtk_notebook_get_nth_page,Gtk.libgtk), Ptr{Gtk.GObject},
 #    (Ptr{Gtk.GObject}, Cint),notebook, page_num-1))
     
-offset(it::Gtk.TI) = get_gtk_property(it, :offset, Integer)
+

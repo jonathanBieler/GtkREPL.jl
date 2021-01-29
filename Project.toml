@@ -1,13 +1,11 @@
 name = "GtkREPL"
 uuid = "2ef734d6-f27a-4c48-b1d9-ab8378fddff2"
 authors = ["Jonathan Bieler <jonathan.bieler@alumni.epfl.ch>"]
-version = "0.1.0"
+version = "0.1.1"
 
 [deps]
 Distributed = "8ba89e20-285c-5b6f-9357-94700520ee1b"
 Gtk = "4c0ca9eb-093a-5379-98c5-f87ac0bbbf44"
-GtkTextUtils = "2e7e9b12-d22e-4e22-8e10-cef500861b7e"
-JuliaWordsUtils = "9e42fe60-4c8f-4de3-8815-836141356991"
 Pkg = "44cfe95a-1eb2-52ea-b672-e2afdf69b78f"
 Printf = "de0858da-6303-5e67-8744-51eddeeeb8d7"
 REPL = "3fa0cd96-eef1-5676-8a61-b3b8758bbffb"
