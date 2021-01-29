@@ -1,7 +1,12 @@
-# put important things in a module for safety
-using RemoteGtkREPL, Pkg
+using RemoteGtkREPL
+RemoteGtkREPL.estalbish_connection(ARGS)
 
-module GtkREPLWorker
+#= RemoteGtkREPL.remotecall_fetch(include_string, GtkREPLWorker.gtkrepl, Main,
+    "$(GtkREPLWorker.remote_mod).add_remote_console_cb($(GtkREPLWorker.id), $(GtkREPLWorker.port))"
+) =#
+
+# put important things in a module for safety
+#= module GtkREPLWorker
 
     using RemoteGtkREPL, Sockets
 
@@ -14,10 +19,12 @@ module GtkREPLWorker
     global const gtkrepl = connect(gtkrepl_port)
 
     RemoteGtkREPL.init(gtkrepl, id)
-end
+end =#
+
+
 
 #ploting stuff
-function gadfly()
+#= function gadfly()
     @eval begin
         RemoteGtkREPL.gadfly()
 
@@ -33,27 +40,14 @@ function gadfly()
         figure() = remotecall_fetch(RemoteGtkREPL.eval_command_remotely, GtkREPLWorker.gtkrepl,"figure()", Main)
         figure(i::Integer) = remotecall_fetch(RemoteGtkREPL.eval_command_remotely, GtkREPLWorker.gtkrepl,"figure($i)", Main)
     end
-end
+end =#
 
 #start Gadfly by default
 #using Gadfly
 #gadfly()
 
-RemoteGtkREPL.remotecall_fetch(include_string, GtkREPLWorker.gtkrepl, Main,
-    "$(GtkREPLWorker.remote_mod).add_remote_console_cb($(GtkREPLWorker.id), $(GtkREPLWorker.port))"
-)
 
 
-@async begin
-#isinteractive() && sleep(0.1)
-#        if !@isdefined watch_stdio_task
 
-    read_stdout, wr = redirect_stdout()
-    watch_stdio_task = @async RemoteGtkREPL.watch_stream(read_stdout, GtkREPLWorker.gtkrepl, GtkREPLWorker.id, GtkREPLWorker.remote_mod)
-
-    #read_stderr, wre = redirect_stderr()
-    #watch_stderr_task = @async watch_stream(read_stderr,stdout_buffer)
-#end
-end
 
 
