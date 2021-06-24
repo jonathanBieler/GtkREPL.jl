@@ -12,7 +12,7 @@ mutable struct ConsoleManager <: GtkNotebook
     function ConsoleManager(main_window, top_module=GtkREPL)
 
         ntb = GtkNotebook()
-        set_gtk_property!(ntb,:vexpand,true)
+        set_gtk_property!(ntb, :vexpand, true)
         port, server = RemoteGtkREPL.start_server()
 
         n = new(ntb.handle, main_window, server, port, top_module)
@@ -21,11 +21,11 @@ mutable struct ConsoleManager <: GtkNotebook
 end
 
 function init!(console_mng::ConsoleManager)
-
+    add_plus_button(console_mng)
     # add a task in Gtk's main main that writes stdout buffer in the console
     signal_connect(console_mng_button_press_cb,console_mng, "button-press-event",
     Cint, (Ptr{Gtk.GdkEvent},),false,console_mng.main_window)
-    signal_connect(console_mng_switch_page_cb,console_mng, "switch-page", Nothing, (Ptr{Gtk.GtkWidget},Int32), false)
+    signal_connect(console_mng_switch_page_cb, console_mng, "switch-page", Nothing, (Ptr{Gtk.GtkWidget},Int32), false)
 end
 
 function init_stdout!(console_mng::ConsoleManager,watch_stdout_task,stdout,stderr)
@@ -38,7 +38,8 @@ function add_remote_console(main_window, mod=GtkREPL)
     port = console_manager(main_window).port
     id = length(console_manager(main_window)) + 1
     p = joinpath(HOMEDIR,"remote_console_startup.jl")
-    julia_path = Config.julia_path
+    #julia_path = Config.julia_path
+    julia_path = ENV["_"] # ^_^
     s = "tell application \"Terminal\" to do script \"$(julia_path) -i --color=no \\\"$p\\\" $port $id $mod\""
     run(`osascript -e $s`)
 end
@@ -74,8 +75,8 @@ end
 
     if rightclick(event)
         menu = buildmenu([
-            MenuItem("Close Console",remove_console_cb),
-            MenuItem("Add Console",add_console_cb)
+            MenuItem("Close Console", remove_console_cb),
+            MenuItem("Add Console", add_console_cb)
             ],
             (ntbook, get_current_console(ntbook), main_window)
         )
@@ -91,12 +92,8 @@ function console_mng_switch_page_cb(widgetptr::Ptr, pageptr::Ptr, pagenum::Int32
     cm = convert(GtkNotebook, widgetptr)
     c  = convert(Gtk.GtkWidget, pageptr)
 
-    on_console_mng_switch_page(cm,c)
+    on_console_mng_switch_page(cm, c)
 
-    #@show (c,cm)
-#    if typeof(page) == Console
-#        console = page
-#    end
     nothing
 end
 

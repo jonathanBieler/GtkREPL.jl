@@ -1,4 +1,4 @@
-using RemoteGtkREPL
+using RemoteGtkREPL, Pkg #need Pkg for REPLMode
 RemoteGtkREPL.estalbish_connection(ARGS)
 
 #= RemoteGtkREPL.remotecall_fetch(include_string, GtkREPLWorker.gtkrepl, Main,

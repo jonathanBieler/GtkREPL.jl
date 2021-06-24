@@ -31,7 +31,7 @@ mutable struct Console{T<:GtkTextView, B<:GtkTextBuffer} <: GtkScrolledWindow
         push!(sc, v)
 
         history = setup_history(w_idx)
-        worker = worker == nothing ? w_idx : worker
+        worker = isnothing(worker) ? w_idx : worker
 
         n = new(sc.handle, v, b, length(prompt)+1, prompt, IOBuffer(), worker, 0, w_idx,
             false, history, main_window, Main, NormalMode()
@@ -86,15 +86,23 @@ end
 
 prompt(c::Console) = prompt(c, c.mode)
 
-function write_before_prompt(c::Console, str::AbstractString)
+# used to write completions before the prompt when we have more than one
+# here if I use c.buffer instead it leads to crashes on v1.6
+function write_before_prompt(c::Console, buffer, str::AbstractString)
 
-    it = GtkTextIter(c.buffer, c.prompt_position-length(prompt(c)))
-    insert!(c.buffer, it, str)
+    it = GtkTextIter(buffer, c.prompt_position-length(prompt(c)))
+    it = Gtk.mutable(it)
+    #insert!(buffer, it, str)
+
+    ccall((:gtk_text_buffer_insert, Gtk.libgtk), Nothing,
+        (Ptr{Gtk.GObject}, Ptr{GtkTextIter}, Ptr{UInt8}, Cint), buffer, it, Gtk.bytestring(str), sizeof(str))
+
     c.prompt_position += length(str)
 
-    it = GtkTextIter(c.buffer, c.prompt_position-length(prompt(c)))
+    it = GtkTextIter(buffer, c.prompt_position-length(prompt(c)))
     if get_text_left_of_iter(it) != "\n"
-        insert!(c.buffer, it, "\n")
+        it = GtkTextIter(buffer, c.prompt_position-length(prompt(c)))
+        insert!(buffer, it, "\n")
         c.prompt_position += 1
     end
 end
@@ -179,7 +187,7 @@ RemoteGtkREPL.process_message(m::RemoteGtkREPL.StdOutData) = print_to_console_re
 
 @guarded (PROPAGATE) function write_output_to_console(console_idx::Int, result, time)
 
-    c = main_window.console_manager[console_idx]
+    c = get_console(main_window.console_manager, console_idx)
 
     if typeof(result) <: Tuple #console commands can return just a string
         str, v = result
@@ -588,7 +596,7 @@ function update_completions(c::Console, comp, dotpos, cmd, lastpart)
             end
         end
 
-        write_before_prompt(c, out)
+        write_before_prompt(c, c.buffer, out)
         out = prefix * REPL.LineEdit.common_prefix(comp)
     else
         out = prefix * comp[1]
@@ -624,6 +632,7 @@ end
 
 "Run from the main Gtk loop, and print to console
 the content of stdout_buffer"
+# TODO : still needed ?
 function print_to_console(console)
     
     s = String(take!(console.stdout_buffer))
@@ -685,16 +694,21 @@ end
 
 get_current_console(console_mng::GtkNotebook) = console_mng[index(console_mng)]
 
+function get_console(cm::ConsoleManager, idx)
+    for i = 1:length(cm)
+        c = get_tab(cm, i)
+        c.worker_idx == idx && return c
+    end
+end
+
 #this is called by remote workers
 function print_to_console_remote(s, idx::Integer)
-
     #copy the output to the right console buffer
-    for i = 1:length(main_window.console_manager)
-        c = get_tab(main_window.console_manager, i)
-
-        if c.worker_idx == idx
-            write(c.stdout_buffer, s)
-        end
+    c = get_console(main_window.console_manager, idx)
+    if !isnothing(c)
+        write(c.stdout_buffer, s)
+    else
+        @warn "Failed to print $s for Console $(idx)."
     end
 end
 

@@ -30,6 +30,7 @@ module GtkREPL
     include("REPLWindow.jl")
     include("CommandHistory.jl")
     include("ConsoleManager.jl")
+    include("AddConsoleTab.jl")
     include("REPLMode.jl")
     include("Console.jl")
     include("ConsoleCommands.jl")
@@ -47,6 +48,7 @@ module GtkREPL
         include(joinpath(HOMEDIR, "REPLWindow.jl"))
         include(joinpath(HOMEDIR, "CommandHistory.jl"))
         include(joinpath(HOMEDIR, "ConsoleManager.jl"))
+        include(joinpath(HOMEDIR, "AddConsoleTab.jl"))
         include(joinpath(HOMEDIR, "REPLMode.jl"))
         include(joinpath(HOMEDIR, "Console.jl"))
         include(joinpath(HOMEDIR, "ConsoleCommands.jl"))
@@ -81,11 +83,13 @@ module GtkREPL
     function gtkrepl(T=GtkTextView, B=GtkTextBuffer)
         global main_window = REPLWindow()
         console_mng = ConsoleManager(main_window)
-        c = Console{T, B}(1, main_window, TCPSocket())
-
         init!(main_window, console_mng)
         init!(console_mng)
-        init!(c)
+
+        #c = Console{T, B}(1, main_window, TCPSocket())
+        #init!(c)
+        RemoteGtkREPL.estalbish_connection(console_mng.port, 1, "GtkREPL")
+
         showall(main_window)
 
         @async begin

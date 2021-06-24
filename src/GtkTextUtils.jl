@@ -1,8 +1,8 @@
 module GtkTextUtils
 
-    using Gtk, JuliaWordsUtils
+    using Gtk
+    using ..JuliaWordsUtils
     import Gtk: GtkTextIter, GLib.mutable, GLib.Mutable, hasselection
-    import JuliaWordsUtils: select_word_backward
 
     export select_word_double_click, select_word, get_line_text, cursor_position,
     get_text_iter_at_cursor, get_current_line_text,
@@ -51,7 +51,7 @@ module GtkTextUtils
     end
     select_word(it::GtkTextIter, buffer::GtkTextBuffer) = select_word(it, buffer, true)
 
-    function select_word_backward(it::GtkTextIter, buffer::GtkTextBuffer, stop_at_dot::Bool)
+    function JuliaWordsUtils.select_word_backward(it::GtkTextIter, buffer::GtkTextBuffer, stop_at_dot::Bool)
 
         (txt, line_start, line_end) = get_line_text(buffer, it)
         pos = offset(it) - offset(line_start) #position of cursor in txt
