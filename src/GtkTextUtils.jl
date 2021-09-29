@@ -11,6 +11,7 @@ module GtkTextUtils
     hasselection, replace_text, offset
 
     offset(it::Gtk.TI) = get_gtk_property(it, :offset, Integer)
+    line(it::Gtk.TI) = get_gtk_property(it,:line,Integer)+1#Gtk counts from zero
 
     function hasselection(b::GtkTextBuffer)
         (found, it_start, it_end) = selection_bounds(b)

@@ -565,7 +565,9 @@ end
 
 function completions_in_module(cmd, c::Console)
     prefix = string(c.eval_in, ".")
+    @info prefix * cmd
     comp, dotpos = remotecall_fetch(RemoteGtkREPL.remote_completions, worker(c), prefix * cmd)
+    @info comp
     dotpos = dotpos .- lastindex(prefix)
     comp, dotpos
 end

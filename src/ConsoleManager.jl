@@ -97,7 +97,14 @@ function console_mng_switch_page_cb(widgetptr::Ptr, pageptr::Ptr, pagenum::Int32
     nothing
 end
 
-current_console(m::ConsoleManager) = m[index(m)]
+function current_console(m::ConsoleManager) 
+    c = m[index(m)]
+    c isa Console && return c
+    for c in m
+        c isa Console && return c
+    end
+    c
+end
 
 function stop_console_redirect(main_window)
 
